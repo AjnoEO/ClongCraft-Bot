@@ -5,6 +5,7 @@ from banner import *
 from utils import *
 from typing import Dict, List, Optional
 from PIL import Image, ImageDraw
+import re
 
 # https://discord.com/api/oauth2/authorize?client_id=1175889917990154250&permissions=2147494976&scope=bot
 
@@ -524,14 +525,15 @@ async def patterns(ctx: lightbulb.Context) -> None:
 async def help_command(ctx: lightbulb.Context) -> None:
 	help_data = {}
 	for k, v in bot.slash_commands.items():
-		usage = "/" + v.name
+		required_args = ""
+		optional_args = ""
 		for option in v.options.values():
 			inner_part = option.name
 			if option.arg_type != str:
 				inner_part += f": {option.arg_type.__name__}"
-			if option.required: total = f"<{inner_part}>"
-			else: total = f"[{inner_part}]"
-			usage += " " + total
+			if option.required: required_args += f" <{inner_part}>"
+			else: optional_args += f" [{inner_part}]"
+		usage = "/" + v.name + required_args + optional_args
 		help_data[k] = {
 			"text": v.description,
 			"usage": usage,
