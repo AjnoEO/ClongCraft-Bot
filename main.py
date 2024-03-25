@@ -382,25 +382,27 @@ async def show(ctx: lightbulb.Context) -> None:
 @lightbulb.command("add", "Add a pattern to the banner design")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def add(ctx: lightbulb.Context) -> None:
-	if ctx.author.id not in banner_designs:
-		await ctx.respond("You don't have a banner design at the moment!",
-						  flags = hikari.messages.MessageFlag.EPHEMERAL)
-	else:
-		index = layer_to_index(ctx, ctx.options.layer)
-		for pattern in Pattern:
-			if pattern.pretty_name == ctx.options.pattern: break
-		else: raise ValueError(f"Invalid pattern: {ctx.options.pattern}")
-		for color in Color:
-			if color.pretty_name == ctx.options.color: break
-		else: raise ValueError("Impossible")
-		new_layer = Layer(color, pattern)
-		layers = banner_designs[ctx.author.id].layers
-		if index is None: layers.append(new_layer)
-		else:
-			assert 1 <= index < len(layers), f"Cannot insert before layer {ctx.options.layer}"
-			layers.insert(index, new_layer)
-		save_banner_data()
-		await respond_with_banner(ctx, banner_designs[ctx.author.id])
+    if ctx.author.id not in banner_designs:
+        await ctx.respond("You don't have a banner design at the moment!",
+                          flags = hikari.messages.MessageFlag.EPHEMERAL)
+    else:
+        index = None
+        if ctx.options.layer is not None:
+            index = layer_to_index(ctx, ctx.options.layer)
+        for pattern in Pattern:
+            if pattern.pretty_name == ctx.options.pattern: break
+        else: raise ValueError(f"Invalid pattern: {ctx.options.pattern}")
+        for color in Color:
+            if color.pretty_name == ctx.options.color: break
+        else: raise ValueError("Impossible")
+        new_layer = Layer(color, pattern)
+        layers = banner_designs[ctx.author.id].layers
+        if index is None: layers.append(new_layer)
+        else:
+            assert 1 <= index < len(layers), f"Cannot insert before layer {ctx.options.layer}"
+            layers.insert(index-1, new_layer)
+        save_banner_data()
+        await respond_with_banner(ctx, banner_designs[ctx.author.id])
 
 @bot.command
 @lightbulb.option("layer", "The layer to remove. Defaults to removing the last layer",
