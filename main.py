@@ -337,14 +337,17 @@ async def list_banners(ctx: lightbulb.Context) -> None:
 # Banner set: {banner_set_name}
 Writing direction: {banner_set.writing_direction.name.title()}
 Newline direction: {banner_set.newline_direction.name.title()}
-Space character: {banner_set.space_char}
-Newline character: {banner_set.newline_char}
+Space character: `{banner_set.space_char}`
+Newline character: `{banner_set.newline_char}`
 ## {num_banners_text}
 """.strip(),
 			attachment = hikari.File(img) if img != None else None,
 			flags = hikari.messages.MessageFlag.EPHEMERAL
 		)
-	await save_temporarily(list_callback, image)
+	if image:
+		await save_temporarily(list_callback, image)
+	else:
+		await list_callback(image)
 
 @bot.command
 @lightbulb.option("name", "The name of the banner to load")
