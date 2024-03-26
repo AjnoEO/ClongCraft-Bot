@@ -47,6 +47,17 @@ def layer_to_index(ctx, layer) -> Optional[int]:
 	for i, possible_layer in enumerate(layers):
 		if layer.lower() in possible_layer.lower(): return i + 1
 
+def number_of_columns_for(number_of_banners):
+	if number_of_banners <= 5:
+		return number_of_banners
+	if number_of_banners <= 30:
+		return 6
+	if number_of_banners <= 42:
+		return 7
+	if number_of_banners <= 56:
+		return 8
+	return 9
+
 bot = lightbulb.BotApp(token = config["data"]["token"], help_class = None)
 
 @bot.listen(lightbulb.CommandErrorEvent)
@@ -327,12 +338,14 @@ async def list_banners(ctx: lightbulb.Context) -> None:
 		dummy_image = Image.new("RGBA", (1, 1))
 		dummy_draw = ImageDraw.Draw(dummy_image)
 		max_text_length = int(max(dummy_draw.textlength(name, BASE_FONT) for name in banners.keys()))
-		image = Image.new("RGBA", (50 + max_text_length, 60 * len(banners)))
+		columns = number_of_columns_for(len(banners))
+		image = Image.new("RGBA", (10 + (max_text_length + 40) * columns, 60 * ((len(banners) + columns - 1) // columns)))
 		draw = ImageDraw.Draw(image)
 		for i, (name, banner) in enumerate(sorted(list(banners.items()), key = lambda x: x[0].lower())):
-			y = 10 + 60 * i
-			image.paste(banner.image, (10, y))
-			draw.text((40, y + 10), name, "#ffffff", BASE_FONT)
+			x = 10 + (max_text_length + 40) * (i % columns)
+			y = 10 + 60 * (i // columns)
+			image.paste(banner.image, (x, y))
+			draw.text((x + 30, y + 20), name, "#ffffff", BASE_FONT, anchor="lm")
 	async def list_callback(img):
 		await ctx.respond(
 			f"""
