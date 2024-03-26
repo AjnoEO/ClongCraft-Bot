@@ -2,5 +2,8 @@
 # TOP SECRET #
 ##############
 
+# bot token
 config.ini
+
+# info about user banners and user sets
 data.json
