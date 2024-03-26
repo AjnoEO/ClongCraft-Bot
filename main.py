@@ -144,6 +144,7 @@ async def save(ctx: lightbulb.Context) -> None:
 @lightbulb.implements(lightbulb.SlashCommand)
 async def set_create(ctx: lightbulb.Context) -> None:
 	assert not (set(ctx.options.name) & set(" ,./|_")), f"Invalid set name: {ctx.options.name}"
+	assert ctx.options.name not in banner_sets[ctx.author.id], f"You already have a set named {ctx.options.name}"
 	assert len(ctx.options.space_char) == 1, f"Space character must be one character, not {len(ctx.options.space_char)}"
 	assert len(ctx.options.newline_char) == 1, \
 		f"Newline character must be one character, not {len(ctx.options.newline_char)}"
