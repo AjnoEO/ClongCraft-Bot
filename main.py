@@ -40,7 +40,8 @@ async def layer_autocomplete(option, interaction) -> List[str]:
 
 def layer_to_index(ctx, layer) -> Optional[int]:
 	banner = banner_designs.get(ctx.author.id)
-	if not banner: return
+	if not banner: return None
+	if not layer: return None
 	layers = [f"{i+1}. {this_layer.color.pretty_name} {this_layer.pattern.pretty_name}"
 			  for i, this_layer in enumerate(banner.layers)]
 	for i, possible_layer in enumerate(layers):
@@ -113,7 +114,7 @@ async def save(ctx: lightbulb.Context) -> None:
 	assert ctx.author.id in banner_designs, "You must have a banner design"
 	last_used[ctx.author.id] = banner_set_name
 	banner_set = banner_sets[ctx.author.id][banner_set_name]
-	banner_set.banners[ctx.options.name] = banner_designs[ctx.author.id]
+	banner_set.banners[ctx.options.name] = banner_designs[ctx.author.id].copy()
 	save_banner_data()
 	await ctx.respond(
 		f"Saved banner as `{ctx.options.name}` to set `{banner_set_name}`!",
@@ -478,6 +479,7 @@ async def edit(ctx: lightbulb.Context) -> None:
 			else: raise ValueError(f"Invalid pattern: {ctx.options.pattern}")
 		else: pattern = layers[index].pattern
 		layers[index].set(Layer(color, pattern))
+		banner_designs[ctx.author.id] = Banner(layers[0].color, layers[1:])
 		save_banner_data()
 		await respond_with_banner(ctx, banner_designs[ctx.author.id])
 
