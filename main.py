@@ -345,10 +345,7 @@ Newline character: `{banner_set.newline_char}`
 			attachment = hikari.File(img) if img != None else None,
 			flags = hikari.messages.MessageFlag.EPHEMERAL
 		)
-	if image:
-		await save_temporarily(list_callback, image)
-	else:
-		await list_callback(image)
+	await save_temporarily(list_callback, image)
 
 @bot.command
 @lightbulb.option("name", "The name of the banner to load")

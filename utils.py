@@ -5,6 +5,9 @@ import random
 from PIL import Image
 
 async def save_temporarily(callback, image, *args):
+	if image == None:
+		await callback(None, *args)
+		return None
 	temp_path = "/temp"
 	Path(temp_path).mkdir(parents=True, exist_ok=True)
 	while True:
