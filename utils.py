@@ -2,7 +2,9 @@ import hikari
 import os
 from pathlib import Path
 import random
-from PIL import Image
+from PIL import Image, ImageFont
+
+BASE_FONT = ImageFont.truetype(font="font_noto/NotoSans.ttf")
 
 async def save_temporarily(callback, image, *args):
 	if image == None:

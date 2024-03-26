@@ -325,13 +325,13 @@ async def list_banners(ctx: lightbulb.Context) -> None:
 																		   key = lambda x: x[0].lower()))
 		dummy_image = Image.new("RGBA", (1, 1))
 		dummy_draw = ImageDraw.Draw(dummy_image)
-		max_text_length = int(max(dummy_draw.textlength(name) for name in banners.keys()))
+		max_text_length = int(max(dummy_draw.textlength(name, BASE_FONT) for name in banners.keys()))
 		image = Image.new("RGBA", (50 + max_text_length, 60 * len(banners)))
 		draw = ImageDraw.Draw(image)
 		for i, (name, banner) in enumerate(sorted(list(banners.items()), key = lambda x: x[0].lower())):
 			y = 10 + 60 * i
 			image.paste(banner.image, (10, y))
-			draw.text((40, y + 10), name, "#ffffff")
+			draw.text((40, y + 10), name, "#ffffff", BASE_FONT)
 	async def list_callback(img):
 		await ctx.respond(
 			f"""
