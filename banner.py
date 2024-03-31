@@ -2,6 +2,7 @@ from json import JSONEncoder
 from enum import Enum
 from PIL import Image
 from typing import List, Dict, Any
+from splitting import SplitMode
 import re, sys, inspect
 
 with Image.open("banners.png") as BANNER_SPRITESHEET: BANNER_SPRITESHEET.load()
@@ -449,12 +450,14 @@ Layers:
         return Banner(self.base_color, [layer.copy() for layer in self.layers])
 
 class BannerSet:
-    def __init__(self, writing_direction: Direction, newline_direction: Direction, space_char: str, newline_char: str):
+    def __init__(self, writing_direction: Direction, newline_direction: Direction, space_char: str, newline_char: str,
+                 split_mode: SplitMode):
         self.banners: Dict[str, Banner] = {}
         self.__writing_direction = writing_direction
         self.__newline_direction = newline_direction
         self.__space_char = space_char
         self.__newline_char = newline_char
+        self.__split_mode = split_mode
 
     @property
     def writing_direction(self): return self.__writing_direction
@@ -468,9 +471,14 @@ class BannerSet:
     @property
     def newline_char(self): return self.__newline_char
 
+    @property
+    def split_mode(self): return self.__split_mode
+
 class BannerJSONEncoder(JSONEncoder):
     def default(self, o: Any) -> Any:
-        if isinstance(o, Enum):
+        if isinstance(o, SplitMode):
+            return list(SplitMode).index(o)
+        elif isinstance(o, Enum):
             return {"__type": o.__class__.__name__, "value": o.value}
         elif isinstance(o, Layer):
             return {"__type": "Layer", "args": [o.color, o.pattern]}
@@ -480,7 +488,7 @@ class BannerJSONEncoder(JSONEncoder):
             return {
                 "__type": "BannerSet",
                 "banners": o.banners,
-                "args": [o.writing_direction, o.newline_direction, o.space_char, o.newline_char]
+                "args": [o.writing_direction, o.newline_direction, o.space_char, o.newline_char, o.split_mode]
             }
         else:
             return super().default(o)
@@ -499,6 +507,8 @@ def banner_json_decode_hook(json_object):
             return Banner.from_banner_code(json_object["code"])
         else:
             args = [banner_json_decode_hook(x) for x in json_object["args"]]
+            if len(args) < 5: args.append(0)
+            args[4] = list(SplitMode)[args[4]]
             if this_class is BannerSet:
                 result = BannerSet(*args)
                 result.banners = banner_json_decode_hook(json_object["banners"])

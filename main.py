@@ -15,7 +15,6 @@ config.read("config.ini")
 banner_designs: Dict[int, Banner] = {}
 banner_sets: Dict[int, Dict[str, BannerSet]] = {}
 last_used: Dict[int, str] = {}
-split_modes: Dict[int, SplitMode] = {}
 
 if os.path.exists("data.json"):
     with open("data.json", encoding="utf-8") as f:
@@ -23,8 +22,6 @@ if os.path.exists("data.json"):
     banner_designs = {int(k): v for k, v in data["designs"].items()}
     banner_sets = {int(k): v for k, v in data["sets"].items()}
     last_used = {int(k): v for k, v in data["last_used"].items()}
-    lsplits = list(SplitMode.__members__.values())
-    split_modes = {int(k): lsplits[v] for k, v in data.get("split_modes", {}).items()}
 
 def save_banner_data():
     with open("data.json", "w") as f:
@@ -34,9 +31,6 @@ def save_banner_data():
             "last_used": last_used,
             "split_modes": {k: v.index for k, v in split_modes.items()}
         }, f, cls = BannerJSONEncoder, indent = 4)
-
-def get_split_mode(user):
-    return split_modes.setdefault(user.id, SplitMode.No)
 
 async def layer_autocomplete(option, interaction) -> List[str]:
     banner = banner_designs.get(interaction.user.id)
@@ -153,6 +147,7 @@ async def save(ctx: lightbulb.Context) -> None:
                   default = "down", choices = ["up", "down", "left", "right"])
 @lightbulb.option("space_char", "The space character. Default is hyphen", default = "-")
 @lightbulb.option("newline_char", "The newline character. Default is slash", default = "/")
+@lightbulb.option("split_mode", "The split mode", default = SplitMode.No.value, choices = [s.value for s in SplitMode])
 @lightbulb.command("set-create", "Create a new banner set")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def set_create(ctx: lightbulb.Context) -> None:
@@ -167,7 +162,9 @@ async def set_create(ctx: lightbulb.Context) -> None:
     newline_direction = getattr(Direction, ctx.options.newline_direction.title())
     assert writing_direction.value % 2 != newline_direction.value % 2, \
         "Writing direction and newline direction must be perpendicular"
-    banner_set = BannerSet(writing_direction, newline_direction, ctx.options.space_char, ctx.options.newline_char)
+    split_mode = [s for s in SplitMode if s.value == ctx.options.split_mode][0]
+    banner_set = BannerSet(writing_direction, newline_direction,
+                           ctx.options.space_char, ctx.options.newline_char, split_mode)
     banner_sets.setdefault(ctx.author.id, {})
     banner_sets[ctx.author.id][ctx.options.name] = banner_set
     last_used[ctx.author.id] = ctx.options.name
@@ -201,7 +198,7 @@ async def say(ctx: lightbulb.Context) -> None:
     banner_set = banner_sets[ctx.author.id][banner_set_name]
     words = ctx.options.message.split()
     split_words = []
-    split_func = get_split_mode(ctx.author).split
+    split_func = banner_set.split_mode.split
     names = list(banner_set.banners.keys())
     for word in words:
         split = split_func(word, names)
@@ -250,6 +247,7 @@ async def say(ctx: lightbulb.Context) -> None:
                   default = None, choices = ["up", "down", "left", "right"])
 @lightbulb.option("space_char", "The space character", default = None)
 @lightbulb.option("newline_char", "The newline character", default = None)
+@lightbulb.option("split_mode", "The split mode", default = None, choices = [s.value for s in SplitMode])
 @lightbulb.command("set-edit", "Edit the settings of a banner set. Default for all options is no change")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def set_edit(ctx: lightbulb.Context) -> None:
@@ -270,13 +268,17 @@ async def set_edit(ctx: lightbulb.Context) -> None:
     )
     space_char = ctx.options.space_char or banner_set.space_char
     newline_char = ctx.options.newline_char or banner_set.newline_char
+    split_mode = (
+         [s for s in SplitMode if s.value == ctx.options.split_mode][0]
+         if ctx.options.split_mode else banner_set.split_mode
+    )
     assert not (set(new_name) & set(" ,./|_")), f"Invalid set name: {new_name}"
     assert len(space_char) == 1, f"Space character must be one character, not {len(space_char)}"
     assert len(newline_char) == 1, f"Newline character must be one character, not {len(newline_char)}"
     assert space_char != newline_char, "Space character and newline character must be distinct"
     assert writing_direction.value % 2 != newline_direction.value % 2, \
         "Writing direction and newline direction must be perpendicular"
-    new_banner_set = BannerSet(writing_direction, newline_direction, space_char, newline_char)
+    new_banner_set = BannerSet(writing_direction, newline_direction, space_char, newline_char, split_mode)
     new_banner_set.banners = banner_set.banners
     banner_sets[ctx.author.id].pop(banner_set_name)
     banner_sets[ctx.author.id][new_name] = new_banner_set
@@ -415,6 +417,7 @@ Writing direction: {banner_set.writing_direction.name.title()}
 Newline direction: {banner_set.newline_direction.name.title()}
 Space character: `{banner_set.space_char}`
 Newline character: `{banner_set.newline_char}`
+Split mode: `{banner_set.split_mode.value}`
 ## {num_banners_text}
 """.strip(),
             attachment = hikari.File(img) if img is not None else None,
@@ -637,24 +640,5 @@ async def help_command(ctx: lightbulb.Context) -> None:
         output = f"`{help_data[ctx.options.command]['usage']}`\n{help_data[ctx.options.command]['text']}"
         for param in help_data[ctx.options.command]["params"]: output += f"\n- {param}"
     await ctx.respond(output, flags = hikari.messages.MessageFlag.EPHEMERAL)
-
-@bot.command
-@lightbulb.command("split-mode", "Gets your current word split mode")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def split_mode(ctx: lightbulb.Context) -> None:
-    await ctx.respond(f"Your current split mode is: {get_split_mode(ctx.author).value}",
-                      flags = hikari.messages.MessageFlag.EPHEMERAL)
-
-@bot.command
-@lightbulb.option("split_mode", "The split mode to set", choices = [s.value for s in SplitMode])
-@lightbulb.command("set-split-mode", "Sets your current word split mode")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def set_split_mode(ctx: lightbulb.Context) -> None:
-    for s in SplitMode:
-        if s.value == ctx.options.split_mode: break
-    else: raise ValueError("Impossible")
-    split_modes[ctx.author.id] = s
-    save_banner_data()
-    await ctx.respond(f"Updated split mode to {s.value}!", flags = hikari.messages.MessageFlag.EPHEMERAL)
 
 bot.run()
