@@ -8,6 +8,9 @@ config.ini
 # info about user banners and user sets
 data.json
 
+# local cache
+__pycache__/
+
 # PyCharm stuff
 .idea
 venv
