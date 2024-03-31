@@ -9,7 +9,7 @@ config.ini
 data.json
 
 # local cache
-__pycache__/*
+__pycache__/
 
 # PyCharm stuff
 .idea
