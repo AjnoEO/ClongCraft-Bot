@@ -7,3 +7,7 @@ config.ini
 
 # info about user banners and user sets
 data.json
+
+# PyCharm stuff
+.idea
+venv
