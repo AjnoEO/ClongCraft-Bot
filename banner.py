@@ -132,8 +132,12 @@ class Pattern(Enum):
     ChiefIndented = 40
 
     @property
-    def pretty_name(self) -> str:
+    def pretty_name_no_char(self) -> str:
         return re.compile(r"([a-z])([A-Z])").sub(r"\1 \2", self.name)
+
+    @property
+    def pretty_name(self) -> str:
+        return self.pretty_name_no_char + " (" + UNICODE_LOOKALIKES[self] + ")"
 
     @property
     def data_value(self) -> str:
@@ -235,6 +239,50 @@ PATTERN_TO_URL_INDEX = {
     Pattern.Snout: "G",
     Pattern.Gradient: "c",
     Pattern.BaseGradient: "C"
+}
+
+UNICODE_LOOKALIKES = {
+    Pattern.Banner: "█",
+    Pattern.Base: "▁",
+    Pattern.Chief: "▔",
+    Pattern.PaleDexter: "▏",
+    Pattern.PaleSinister: "▕",
+    Pattern.Fess: "-",
+    Pattern.Pale: "|",
+    Pattern.Bend: "\\",
+    Pattern.BendSinister: "/",
+    Pattern.Saltire: "X",
+    Pattern.Paly: "ꘈ",
+    Pattern.Cross: "+",
+    Pattern.PerBend: "◥",
+    Pattern.PerBendSinister: "◤",
+    Pattern.PerBendInverted: "◣",
+    Pattern.PerBendSinisterInverted: "◢",
+    Pattern.PerPale: "▌",
+    Pattern.PerPaleInverted: "▐",
+    Pattern.PerFess: "▀",
+    Pattern.PerFessInverted: "▄",
+    Pattern.BaseDexterCanton: "▖",
+    Pattern.BaseSinisterCanton: "▗",
+    Pattern.ChiefDexterCanton: "▘",
+    Pattern.ChiefSinisterCanton: "▝",
+    Pattern.Chevron: "▲",
+    Pattern.InvertedChevron: "▼",
+    Pattern.BaseIndented: "⏟",
+    Pattern.ChiefIndented: "⏞",
+    Pattern.Roundel: "●",
+    Pattern.Lozenge: "◆",
+    Pattern.Bordure: "◻",
+    Pattern.BordureIndented: "▩",
+    Pattern.FieldMasoned: "▤",
+    Pattern.CreeperCharge: "⍨",
+    Pattern.SkullCharge: "⍚",
+    Pattern.FlowerCharge: "⌾",
+    Pattern.Thing: "ᕧ",
+    Pattern.Globe: "⬡",
+    Pattern.Snout: "🀹",
+    Pattern.Gradient: "⏷",
+    Pattern.BaseGradient: "⏶"
 }
 
 class Layer:

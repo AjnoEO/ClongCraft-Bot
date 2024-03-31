@@ -558,15 +558,18 @@ async def clear(ctx: lightbulb.Context) -> None:
         await respond_with_banner(ctx, banner_designs[ctx.author.id])
 
 @bot.command
-@lightbulb.command("patterns", "List all banner patterns. Requires banner font")
+@lightbulb.command("patterns", "List all banner patterns")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def patterns(ctx: lightbulb.Context) -> None:
     output = []
+    output_images = []
     for pattern in Pattern:
         if pattern == Pattern.Banner:
-            output.append(pattern.pretty_name + " " + Banner(Color.Black, []).text)
+            banner = Banner(Color.Black, [])
         else:
-            output.append(pattern.pretty_name + " " + Banner(Color.White, [Layer(Color.Black, pattern)]).text)
+            banner = Banner(Color.White, [Layer(Color.Black, pattern)])
+        output.append(pattern.pretty_name + " " + banner.text)
+        output_images.append(banner.image)
     await ctx.respond("\n".join(output), flags = hikari.messages.MessageFlag.EPHEMERAL)
 
 @bot.command
