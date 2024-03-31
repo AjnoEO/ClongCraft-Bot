@@ -5,6 +5,7 @@ from banner import *
 from utils import *
 from typing import Dict, List, Optional
 from PIL import Image, ImageDraw
+from splitting import SplitMode
 
 # https://discord.com/api/oauth2/authorize?client_id=1175889917990154250&permissions=2147494976&scope=bot
 
@@ -14,6 +15,7 @@ config.read("config.ini")
 banner_designs: Dict[int, Banner] = {}
 banner_sets: Dict[int, Dict[str, BannerSet]] = {}
 last_used: Dict[int, str] = {}
+split_modes: Dict[int, SplitMode] = {}
 
 if os.path.exists("data.json"):
     with open("data.json", encoding="utf-8") as f:
@@ -21,14 +23,20 @@ if os.path.exists("data.json"):
     banner_designs = {int(k): v for k, v in data["designs"].items()}
     banner_sets = {int(k): v for k, v in data["sets"].items()}
     last_used = {int(k): v for k, v in data["last_used"].items()}
+    lsplits = list(SplitMode.__members__.values())
+    split_modes = {int(k): lsplits[v] for k, v in data.get("split_modes", {}).items()}
 
 def save_banner_data():
     with open("data.json", "w") as f:
         json.dump({
             "designs": banner_designs,
             "sets": banner_sets,
-            "last_used": last_used
+            "last_used": last_used,
+            "split_modes": {k: v.index for k, v in split_modes.items()}
         }, f, cls = BannerJSONEncoder, indent = 4)
+
+def get_split_mode(user):
+    return split_modes.setdefault(user.id, SplitMode.No)
 
 async def layer_autocomplete(option, interaction) -> List[str]:
     banner = banner_designs.get(interaction.user.id)
@@ -192,8 +200,15 @@ async def say(ctx: lightbulb.Context) -> None:
     assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
     banner_set = banner_sets[ctx.author.id][banner_set_name]
     words = ctx.options.message.split()
-    output = [[]]
+    split_words = []
+    split_func = get_split_mode(ctx.author).split
+    names = list(banner_set.banners.keys())
     for word in words:
+        split = split_func(word, names)
+        assert split is not None, f"Could not split word {word}"
+        split_words += split
+    output = [[]]
+    for word in split_words:
         if word == banner_set.space_char: output[-1].append(None)
         elif word == banner_set.newline_char: output.append([])
         else:
@@ -622,5 +637,24 @@ async def help_command(ctx: lightbulb.Context) -> None:
         output = f"`{help_data[ctx.options.command]['usage']}`\n{help_data[ctx.options.command]['text']}"
         for param in help_data[ctx.options.command]["params"]: output += f"\n- {param}"
     await ctx.respond(output, flags = hikari.messages.MessageFlag.EPHEMERAL)
+
+@bot.command
+@lightbulb.command("split-mode", "Gets your current word split mode")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def split_mode(ctx: lightbulb.Context) -> None:
+    await ctx.respond(f"Your current split mode is: {get_split_mode(ctx.author).value}",
+                      flags = hikari.messages.MessageFlag.EPHEMERAL)
+
+@bot.command
+@lightbulb.option("split_mode", "The split mode to set", choices = [s.value for s in SplitMode])
+@lightbulb.command("set-split-mode", "Sets your current word split mode")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def set_split_mode(ctx: lightbulb.Context) -> None:
+    for s in SplitMode:
+        if s.value == ctx.options.split_mode: break
+    else: raise ValueError("Impossible")
+    split_modes[ctx.author.id] = s
+    save_banner_data()
+    await ctx.respond(f"Updated split mode to {s.value}!", flags = hikari.messages.MessageFlag.EPHEMERAL)
 
 bot.run()
