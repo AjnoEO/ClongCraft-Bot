@@ -308,7 +308,7 @@ async def delete(ctx: lightbulb.Context) -> None:
 @lightbulb.option("set", "The name of the set. Last used by default", default = None)
 @lightbulb.command("rename", "Rename a banner")
 @lightbulb.implements(lightbulb.SlashCommand)
-async def delete(ctx: lightbulb.Context) -> None:
+async def rename(ctx: lightbulb.Context) -> None:
     banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
     assert banner_set_name, "You must have a banner set"
     last_used[ctx.author.id] = banner_set_name
@@ -316,10 +316,27 @@ async def delete(ctx: lightbulb.Context) -> None:
     assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
     banner_set = banner_sets[ctx.author.id][banner_set_name]
     assert ctx.options.name in banner_set.banners, f"Banner {ctx.options.name} does not exist"
+    assert ctx.options.new_name not in banner_set.banners, f"Banner {ctx.options.new_name} already exists"
     banner_set.banners[ctx.options.new_name] = banner_set.banners.pop(ctx.options.name)
     save_banner_data()
     await ctx.respond(
         f"Renamed banner `{ctx.options.name}` to `{ctx.options.new_name}` from set `{banner_set_name}`!",
+        flags = hikari.messages.MessageFlag.EPHEMERAL
+    )
+
+@bot.command
+@lightbulb.option("name", "The name of the set")
+@lightbulb.option("new_name", "The new name of the set")
+@lightbulb.command("set-rename", "Rename a set")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def set_rename(ctx: lightbulb.Context) -> None:
+    banner_sets.setdefault(ctx.author.id, {})
+    assert ctx.options.name in banner_sets[ctx.author.id], f"Banner set {ctx.options.name} does not exist"
+    assert ctx.options.new_name not in banner_sets[ctx.author.id], f"Banner set {ctx.options.new_name} already exists"
+    banner_sets[ctx.author.id][ctx.options.new_name] = banner_sets[ctx.author.id].pop(ctx.options.name)
+    save_banner_data()
+    await ctx.respond(
+        f"Renamed banner set `{ctx.options.name}` to `{ctx.options.new_name}`!",
         flags = hikari.messages.MessageFlag.EPHEMERAL
     )
 
