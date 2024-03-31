@@ -28,8 +28,7 @@ def save_banner_data():
         json.dump({
             "designs": banner_designs,
             "sets": banner_sets,
-            "last_used": last_used,
-            #"split_modes": {k: v.index for k, v in split_modes.items()}
+            "last_used": last_used
         }, f, cls = BannerJSONEncoder, indent = 4)
 
 async def layer_autocomplete(option, interaction) -> List[str]:
