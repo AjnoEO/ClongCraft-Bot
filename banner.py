@@ -249,7 +249,7 @@ UNICODE_LOOKALIKES = {
     Pattern.PaleSinister: "▕",
     Pattern.Fess: "-",
     Pattern.Pale: "|",
-    Pattern.Bend: "\\",
+    Pattern.Bend: "\\\\",
     Pattern.BendSinister: "/",
     Pattern.Saltire: "X",
     Pattern.Paly: "ꘈ",

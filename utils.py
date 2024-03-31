@@ -7,7 +7,7 @@ from PIL import Image, ImageFont
 BASE_FONT = ImageFont.truetype(font="font_noto/NotoSans.ttf")
 
 async def save_temporarily(callback, image, *args):
-	if image == None:
+	if image is None:
 		await callback(None, *args)
 		return None
 	temp_path = "/temp"

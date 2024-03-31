@@ -5,7 +5,6 @@ from banner import *
 from utils import *
 from typing import Dict, List, Optional
 from PIL import Image, ImageDraw
-import re
 
 # https://discord.com/api/oauth2/authorize?client_id=1175889917990154250&permissions=2147494976&scope=bot
 
@@ -48,14 +47,10 @@ def layer_to_index(ctx, layer) -> Optional[int]:
         if layer.lower() in possible_layer.lower(): return i + 1
 
 def number_of_columns_for(number_of_banners):
-    if number_of_banners <= 5:
-        return number_of_banners
-    if number_of_banners <= 30:
-        return 6
-    if number_of_banners <= 42:
-        return 7
-    if number_of_banners <= 56:
-        return 8
+    if number_of_banners <= 5: return number_of_banners
+    if number_of_banners <= 30: return 6
+    if number_of_banners <= 42: return 7
+    if number_of_banners <= 56: return 8
     return 9
 
 bot = lightbulb.BotApp(token = config["data"]["token"], help_class = None)
@@ -63,10 +58,20 @@ bot = lightbulb.BotApp(token = config["data"]["token"], help_class = None)
 @bot.listen(lightbulb.CommandErrorEvent)
 async def on_error(event: lightbulb.CommandErrorEvent) -> None:
     if isinstance(event.exception, lightbulb.CommandInvocationError):
+        error_message = ""
+        if isinstance(event.exception.original, AssertionError):
+            error_message = str(event.exception.__cause__)
+        else:
+            traceback = event.exception.original.__traceback__
+            while traceback.tb_next: traceback = traceback.tb_next
+            filename = os.path.split(traceback.tb_frame.f_code.co_filename)[1]
+            line_number = traceback.tb_lineno
+            error_message = f"{event.exception.original.__class__.__name__} " \
+                            f"({filename}, line {line_number}): {event.exception.__cause__}"
         embed = hikari.embeds.Embed(
             title = "Error!",
             description = f"An error occurred while attempting to use `/{event.context.command.name}`.\n"
-                          f"Error message: `{event.exception.__cause__}`"
+                          f"Error message: `{error_message}`"
         )
         await event.context.respond(embed, flags = hikari.messages.MessageFlag.EPHEMERAL)
         return
@@ -144,7 +149,8 @@ async def save(ctx: lightbulb.Context) -> None:
 @lightbulb.implements(lightbulb.SlashCommand)
 async def set_create(ctx: lightbulb.Context) -> None:
     assert not (set(ctx.options.name) & set(" ,./|_")), f"Invalid set name: {ctx.options.name}"
-    assert ctx.options.name not in banner_sets[ctx.author.id], f"You already have a set named {ctx.options.name}"
+    assert ctx.options.name not in banner_sets.get(ctx.author.id, {}), \
+        f"You already have a set named {ctx.options.name}"
     assert len(ctx.options.space_char) == 1, f"Space character must be one character, not {len(ctx.options.space_char)}"
     assert len(ctx.options.newline_char) == 1, \
         f"Newline character must be one character, not {len(ctx.options.newline_char)}"
@@ -359,7 +365,7 @@ async def set_list(ctx: lightbulb.Context) -> None:
 @lightbulb.option("set", "The name of the set. Last used by default", default = None)
 @lightbulb.command("set-info", "List information on a banner set")
 @lightbulb.implements(lightbulb.SlashCommand)
-async def list_banners(ctx: lightbulb.Context) -> None:
+async def set_info(ctx: lightbulb.Context) -> None:
     banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
     assert banner_set_name, "You must have a banner set"
     last_used[ctx.author.id] = banner_set_name
@@ -562,15 +568,31 @@ async def clear(ctx: lightbulb.Context) -> None:
 @lightbulb.implements(lightbulb.SlashCommand)
 async def patterns(ctx: lightbulb.Context) -> None:
     output = []
-    output_images = []
+    output_images = {}
     for pattern in Pattern:
         if pattern == Pattern.Banner:
             banner = Banner(Color.Black, [])
         else:
             banner = Banner(Color.White, [Layer(Color.Black, pattern)])
         output.append(pattern.pretty_name + " " + banner.text)
-        output_images.append(banner.image)
-    await ctx.respond("\n".join(output), flags = hikari.messages.MessageFlag.EPHEMERAL)
+        output_images[pattern.pretty_name_no_char] = banner.image
+    columns = number_of_columns_for(len(output_images))
+    dummy_image = Image.new("RGBA", (1, 1))
+    dummy_draw = ImageDraw.Draw(dummy_image)
+    max_text_length = int(max(dummy_draw.textlength(name, BASE_FONT) for name in output_images.keys()))
+    image = Image.new("RGBA",
+                      (10 + (max_text_length + 40) * columns, 60 * ((len(output_images) + columns - 1) // columns)))
+    draw = ImageDraw.Draw(image)
+    for i, (name, banner) in enumerate(sorted(list(output_images.items()), key = lambda x: x[0].lower())):
+        x = 10 + (max_text_length + 40) * (i % columns)
+        y = 10 + 60 * (i // columns)
+        image.paste(banner, (x, y))
+        draw.text((x + 30, y + 20), name, "#ffffff", BASE_FONT, anchor="lm")
+    async def callback(img):
+        await ctx.respond("\n".join(output),
+                          flags = hikari.messages.MessageFlag.EPHEMERAL,
+                          attachment = hikari.File(img))
+    await save_temporarily(callback, image)
 
 @bot.command
 @lightbulb.option("command", "Command to get help on", default = None,
