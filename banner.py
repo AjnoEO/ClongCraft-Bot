@@ -497,7 +497,7 @@ cls_members = dict(inspect.getmembers(sys.modules[__name__], inspect.isclass))
 
 def banner_json_decode_hook(json_object):
     if type(json_object) in cls_members.values(): return json_object
-    if "__type" in json_object:
+    if hasattr(json_object, "__iter__") and "__type" in json_object:
         this_class = cls_members[json_object["__type"]]
         if issubclass(this_class, Enum):
             for item in this_class:
@@ -507,12 +507,12 @@ def banner_json_decode_hook(json_object):
             return Banner.from_banner_code(json_object["code"])
         else:
             args = [banner_json_decode_hook(x) for x in json_object["args"]]
-            if len(args) < 5: args.append(0)
-            args[4] = list(SplitMode)[args[4]]
             if this_class is BannerSet:
                 result = BannerSet(*args)
                 result.banners = banner_json_decode_hook(json_object["banners"])
                 return result
             else:
                 return this_class(*args)
+    elif isinstance(json_object, int):
+        return list(SplitMode)[json_object]
     return json_object
