@@ -495,17 +495,6 @@ async def remove(ctx: lightbulb.Context) -> None:
         else:
             assert 1 <= index <= len(layers), f"Cannot remove layer {ctx.options.layer}"
             layers.pop(index - 1)
-        if not ctx.options.pattern: pattern = layers[index].pattern
-        else:
-            for pattern in Pattern:
-                if pattern.pretty_name == ctx.options.pattern: break
-            else: raise ValueError(f"Invalid pattern: {ctx.options.pattern}")
-        if not ctx.options.color: color = layers[index].color
-        else:
-            for color in Color:
-                if color.pretty_name == ctx.options.color: break
-            else: raise ValueError("Impossible")
-        layers[index] = Layer(color, pattern)
         save_banner_data()
         await respond_with_banner(ctx, banner_designs[ctx.author.id])
 
