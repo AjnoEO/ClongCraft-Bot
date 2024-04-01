@@ -10,7 +10,7 @@ async def save_temporarily(callback, image, *args):
 	if image is None:
 		await callback(None, *args)
 		return None
-	temp_path = "/temp"
+	temp_path = "temp"
 	Path(temp_path).mkdir(parents=True, exist_ok=True)
 	while True:
 		filename = "".join(chr(random.randint(ord("a"), ord("z"))) for i in range(8))
