@@ -474,8 +474,8 @@ async def add(ctx: lightbulb.Context) -> None:
         layers = banner_designs[ctx.author.id].layers
         if index is None: layers.append(new_layer)
         else:
-            assert 1 <= index < len(layers), f"Cannot insert before layer {ctx.options.layer}"
-            layers.insert(index-1, new_layer)
+            assert 1 <= index <= len(layers), f"Cannot insert before layer {ctx.options.layer}"
+            layers.insert(index - 1, new_layer)
         save_banner_data()
         await respond_with_banner(ctx, banner_designs[ctx.author.id])
 
@@ -493,8 +493,8 @@ async def remove(ctx: lightbulb.Context) -> None:
         layers = banner_designs[ctx.author.id].layers
         if index is None: layers.pop()
         else:
-            assert 1 <= index < len(layers), f"Cannot remove layer {ctx.options.layer}"
-            layers.pop(index)
+            assert 1 <= index <= len(layers), f"Cannot remove layer {ctx.options.layer}"
+            layers.pop(index - 1)
         if not ctx.options.pattern: pattern = layers[index].pattern
         else:
             for pattern in Pattern:
