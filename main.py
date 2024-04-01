@@ -392,10 +392,7 @@ async def set_info(ctx: lightbulb.Context) -> None:
     num_banners_text = "0 banners"
     image = None
     if banners:
-        num_banners_text = \
-            f"{len(banners)} banner{'s' if len(banners) != 1 else ''}:\n- " + \
-            "\n- ".join(f"{name} {banner.text}" for name, banner in sorted(list(banners.items()),
-                                                                           key = lambda x: x[0].lower()))
+        num_banners_text = f"{len(banners)} banner{'s' if len(banners) != 1 else ''}"
         dummy_image = Image.new("RGBA", (1, 1))
         dummy_draw = ImageDraw.Draw(dummy_image)
         max_text_length = int(max(dummy_draw.textlength(name, BASE_FONT) for name in banners.keys()))
