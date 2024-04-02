@@ -229,7 +229,7 @@ async def say(ctx: lightbulb.Context) -> None:
             elif banner_set.writing_direction == Direction.Left: paste_col = image_cols - c - 1
             elif banner_set.writing_direction == Direction.Right: paste_col = c
             paste_x = paste_col * 20 * scale + margin + spacing * paste_col
-            paste_y = paste_row * 20 * scale + margin + spacing * paste_row
+            paste_y = paste_row * 40 * scale + margin + spacing * paste_row
             image.paste(sprite, (paste_x, paste_y))
     async def say_callback(img):
         await ctx.respond(hikari.File(img), flags = hikari.messages.MessageFlag.EPHEMERAL)
