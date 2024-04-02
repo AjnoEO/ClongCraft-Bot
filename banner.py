@@ -1,9 +1,12 @@
-from json import JSONEncoder
 from banner_enums import *
+import inspect
+from json import JSONEncoder
 from PIL import Image
-from typing import List, Dict, Any
+import re
 from splitting import SplitMode
-import re, sys, inspect
+import sys
+from typing import List, Dict, Any
+from utils import urlize
 
 with Image.open("banners.png") as BANNER_SPRITESHEET: BANNER_SPRITESHEET.load()
 SPRITES = []
@@ -133,7 +136,7 @@ class Banner:
 
     @property
     def planetminecraft_url(self) -> str:
-        return "https://www.planetminecraft.com/banner/?b=" + \
+        return "planetminecraft.com/banner/?b=" + \
             self.base_color.planetminecraft_url_index + "".join(layer.planetminecraft_url_part for layer in self.layers)
 
     @classmethod
@@ -218,7 +221,7 @@ Copyable: ```
 {self.text}
 ```
 Banner code: `{self.banner_code}`
-URL: {self.planetminecraft_url}
+URL: {urlize(self.planetminecraft_url)}
 Layers:
 {layer_text}"""
 

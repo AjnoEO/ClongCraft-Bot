@@ -109,7 +109,7 @@ async def from_text(ctx: lightbulb.Context) -> None:
     await respond_with_banner(ctx, banner)
 
 @bot.command
-@lightbulb.option("url", "Banner URL. You can use either planetminecraft.com/banner/ or banner-writer.web.app/")
+@lightbulb.option("url", "Banner URL. You can use either planetminecraft.com/banner or banner-writer.web.app")
 @lightbulb.command("from-url", "Clear the banner design and create a design using the given URL.")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def from_url(ctx: lightbulb.Context) -> None:
@@ -617,7 +617,7 @@ async def help_command(ctx: lightbulb.Context) -> None:
         help_data[k] = {
             "text": v.description,
             "usage": usage,
-            "params": [f"`{option.name}`: {option.description}" for option in v.options.values()]
+            "params": [f"`{option.name}`: {urlize(option.description)}" for option in v.options.values()]
         }
     if not ctx.options.command:
         output = "# Command list:\n- " + "\n- ".join(f"`{x['usage']}` {x['text']}" for x in help_data.values())
