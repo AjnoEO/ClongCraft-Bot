@@ -109,7 +109,7 @@ async def from_text(ctx: lightbulb.Context) -> None:
     await respond_with_banner(ctx, banner)
 
 @bot.command
-@lightbulb.option("url", "Banner URL. Use the website https://www.planetminecraft.com/banner/")
+@lightbulb.option("url", "Banner URL. You can use either https://www.planetminecraft.com/banner/ or https://banner-writer.web.app/")
 @lightbulb.command("from-url", "Clear the banner design and create a design using the given URL.")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def from_url(ctx: lightbulb.Context) -> None:

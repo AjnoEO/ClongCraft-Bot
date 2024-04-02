@@ -46,8 +46,12 @@ class Color(Enum):
         return COLOR_TO_UNICODE_INDEX[self]
 
     @property
-    def banner_url_index(self) -> str:
-        return COLOR_TO_URL_INDEX[self]
+    def bannerwriter_url_index(self) -> str:
+        return COLOR_TO_BANNERWRITER_URL_INDEX[self]
+    
+    @property
+    def planetminecraft_url_index(self) -> str:
+        return COLOR_TO_PLANETMINECRAFT_URL_INDEX[self]
 
 COLOR_CHOICES = [c.pretty_name for c in Color]
 
@@ -70,7 +74,26 @@ COLOR_TO_UNICODE_INDEX = {
     Color.Purple: 15
 }
 
-COLOR_TO_URL_INDEX = {
+COLOR_TO_BANNERWRITER_URL_INDEX = {
+    Color.White: "0",
+    Color.LightGray: "1",
+    Color.Gray: "2",
+    Color.Black: "3",
+    Color.Yellow: "4",
+    Color.Orange: "5",
+    Color.Red: "6",
+    Color.Brown: "7",
+    Color.Lime: "8",
+    Color.Green: "9",
+    Color.LightBlue: "A",
+    Color.Cyan: "B",
+    Color.Blue: "C",
+    Color.Pink: "D",
+    Color.Magenta: "E",
+    Color.Purple: "F",
+}
+
+COLOR_TO_PLANETMINECRAFT_URL_INDEX = {
     Color.White: "g",
     Color.LightGray: "8",
     Color.Gray: "9",
@@ -145,8 +168,12 @@ class Pattern(Enum):
         return PATTERN_TO_DATA_VALUE[self]
 
     @property
-    def banner_url_index(self) -> str:
-        return PATTERN_TO_URL_INDEX.get(self)
+    def bannerwriter_url_index(self) -> str:
+        return PATTERN_TO_BANNERWRITER_URL_INDEX[self]
+    
+    @property
+    def planetminecraft_url_index(self) -> str:
+        return PATTERN_TO_PLANETMINECRAFT_URL_INDEX.get(self)
 
 async def pattern_autocomplete(option, interaction):
     output = []
@@ -199,7 +226,51 @@ PATTERN_TO_DATA_VALUE = {
     Pattern.Snout: "pig"
 }
 
-PATTERN_TO_URL_INDEX = {
+PATTERN_TO_BANNERWRITER_URL_INDEX = {
+    Pattern.Banner: ".",
+    Pattern.Bordure: "G",
+    Pattern.FieldMasoned: "H",
+    Pattern.Roundel: "I",
+    Pattern.CreeperCharge: "J",
+    Pattern.Saltire: "K",
+    Pattern.BordureIndented: "L",
+    Pattern.PerBendSinister: "M",
+    Pattern.PerBend: "N",
+    Pattern.PerBendInverted: "O",
+    Pattern.PerBendSinisterInverted: "P",
+    Pattern.FlowerCharge: "Q",
+    Pattern.Globe: "R",
+    Pattern.Gradient: "S",
+    Pattern.BaseGradient: "T",
+    Pattern.PerFess: "U",
+    Pattern.PerFessInverted: "V",
+    Pattern.PerPale: "W",
+    Pattern.PerPaleInverted: "X",
+    Pattern.Thing: "Y",
+    Pattern.Snout: "Z",
+    Pattern.Lozenge: "a",
+    Pattern.SkullCharge: "b",
+    Pattern.Paly: "c",
+    Pattern.BaseDexterCanton: "d",
+    Pattern.BaseSinisterCanton: "e",
+    Pattern.ChiefDexterCanton: "f",
+    Pattern.ChiefSinisterCanton: "g",
+    Pattern.Cross: "h",
+    Pattern.Base: "i",
+    Pattern.Pale: "j",
+    Pattern.BendSinister: "k",
+    Pattern.Bend: "l",
+    Pattern.PaleDexter: "m",
+    Pattern.Fess: "n",
+    Pattern.PaleSinister: "o",
+    Pattern.Chief: "p",
+    Pattern.Chevron: "q",
+    Pattern.InvertedChevron: "r",
+    Pattern.BaseIndented: "s",
+    Pattern.ChiefIndented: "t"
+}
+
+PATTERN_TO_PLANETMINECRAFT_URL_INDEX = {
     Pattern.Base: "o",
     Pattern.Chief: "v",
     Pattern.PaleDexter: "s",
@@ -318,8 +389,8 @@ class Layer:
         return self.pattern.data_value + str(self.color.value)
 
     @property
-    def banner_url_part(self) -> str:
-        return self.color.banner_url_index + self.pattern.banner_url_index
+    def planetminecraft_url_part(self) -> str:
+        return self.color.planetminecraft_url_index + self.pattern.planetminecraft_url_index
 
     @classmethod
     def from_character(cls, char: str) -> "Layer":
@@ -351,14 +422,14 @@ class Layer:
         return Layer(color, pattern)
 
     @classmethod
-    def from_banner_url_part(cls, part: str) -> "Layer":
+    def from_planetminecraft_url_part(cls, part: str) -> "Layer":
         assert len(part) == 2, f"Invalid URL part: {part}"
         color_char, pattern_char = part
         for color in Color:
-            if color.banner_url_index == color_char: break
+            if color.planetminecraft_url_index == color_char: break
         else: raise ValueError(f"Invalid color: {color_char}")
         for pattern in Pattern:
-            if pattern.banner_url_index == pattern_char: break
+            if pattern.planetminecraft_url_index == pattern_char: break
         else: raise ValueError(f"Invalid pattern: {pattern_char}")
         return Layer(color, pattern)
 
@@ -398,9 +469,9 @@ class Banner:
         return "".join(layer.banner_code for layer in self.all_layers)
 
     @property
-    def banner_url(self) -> str:
+    def planetminecraft_url(self) -> str:
         return "https://www.planetminecraft.com/banner/?b=" + \
-               self.base_color.banner_url_index + "".join(layer.banner_url_part for layer in self.layers)
+            self.base_color.planetminecraft_url_index + "".join(layer.planetminecraft_url_part for layer in self.layers)
 
     @classmethod
     def from_text(cls, text: str) -> "Banner":
@@ -420,16 +491,58 @@ class Banner:
         return cls(all_layers[0].color, all_layers[1:])
 
     @classmethod
-    def from_banner_url(cls, banner_url: str) -> "Banner":
-        assert banner_url.startswith("https://www.planetminecraft.com/banner/?b="), \
-            f"Non-banner maker URL: {banner_url}"
-        banner_url = banner_url[42:]
+    def from_bannerwriter_url(cls, bannerwriter_url: str) -> "Banner":
+        assert bannerwriter_url.startswith("https://banner-writer.web.app/image/"), \
+            f"Not a bannerwriter URL: {bannerwriter_url}"
+        assert len(bannerwriter_url) >= 37 and bannerwriter_url[36] == "L" or bannerwriter_url[36] == "R", \
+            f"Bannerwriter URL didn't have a direction control character: {bannerwriter_url[36]}"
+        assert bannerwriter_url.endswith(".png"), \
+            f"Bannerwriter URL didn't end with a .png extension: {bannerwriter_url}"
+        bannerwriter_url = bannerwriter_url[37:-4]
+        current_color = Color.White # Color is changed only when required in this URL type. Default is white.
+        layers = []
+        for char in bannerwriter_url:
+            for color in Color:
+                if color.bannerwriter_url_index == char:
+                    current_color = color
+                    break
+            else:
+                for pattern in Pattern:
+                    if pattern.bannerwriter_url_index == char:
+                        layers.append(Layer(current_color, pattern))
+                        break
+                else:
+                    if char == "_" or char == "~":
+                        raise ValueError(f"Bannerwriter URL contained space/newline: {bannerwriter_url}")
+                    raise ValueError(f"Invalid character detected: {char}")
+        background = layers.pop(0)
+        assert background.pattern == Pattern.Banner, \
+            f"Banner from Bannerwriter URL didn't start with a background: {bannerwriter_url}"
+        for layer in layers:
+            assert layer.pattern != Pattern.Banner, \
+                f"Bannerwriter URL contained multiple banners: {bannerwriter_url}"
+        return cls(background.color, layers)
+    
+    @classmethod
+    def from_planetminecraft_url(cls, planetminecraft_url: str) -> "Banner":
+        assert planetminecraft_url.startswith("https://www.planetminecraft.com/banner/?b="), \
+            f"Not a planetminecraft URL: {planetminecraft_url}"
+        planetminecraft_url = planetminecraft_url[42:]
         for base_color in Color:
-            if base_color.banner_url_index == banner_url[0]: break
-        else: raise ValueError(f"Invalid color: {banner_url[0]}")
-        layer_parts = [banner_url[x:x+2] for x in range(1, len(banner_url), 2)]
-        layers = [Layer.from_banner_url_part(layer_part) for layer_part in layer_parts]
+            if base_color.planetminecraft_url_index == planetminecraft_url[0]: break
+        else: raise ValueError(f"Invalid color: {planetminecraft_url[0]}")
+        layer_parts = [planetminecraft_url[x:x+2] for x in range(1, len(planetminecraft_url), 2)]
+        layers = [Layer.from_planetminecraft_url_part(layer_part) for layer_part in layer_parts]
         return cls(base_color, layers)
+    
+    @classmethod
+    def from_banner_url(cls, url: str) -> "Banner":
+        if url.startswith("https://banner-writer.web.app/image/"):
+            return cls.from_bannerwriter_url(url)
+        elif url.startswith("https://www.planetminecraft.com/banner/?b="):
+            return cls.from_planetminecraft_url(url)
+        else:
+            raise ValueError(f"Unrecognized URL: {url}")
 
     @property
     def description(self) -> str:
@@ -442,7 +555,7 @@ Copyable: ```
 {self.text}
 ```
 Banner code: `{self.banner_code}`
-URL: {self.banner_url}
+URL: {self.planetminecraft_url}
 Layers:
 {layer_text}"""
 
