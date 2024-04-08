@@ -8,6 +8,9 @@ config.ini
 # info about user banners and user sets
 data.json
 
+# temporarily saved images
+temp/
+
 # local cache
 __pycache__/
 

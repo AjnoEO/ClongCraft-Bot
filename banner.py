@@ -181,6 +181,8 @@ class Banner:
                     if char == "_" or char == "~":
                         raise ValueError(f"Bannerwriter URL contained space/newline: {bannerwriter_url}")
                     raise ValueError(f"Invalid character detected: {char}")
+        assert len(layers) > 0, \
+            f"Banner from Bannerwriter URL was empty: {bannerwriter_url}"
         background = layers.pop(0)
         assert background.pattern == Pattern.Banner, \
             f"Banner from Bannerwriter URL didn't start with a background: {bannerwriter_url}"
@@ -295,3 +297,89 @@ def banner_json_decode_hook(json_object):
     elif isinstance(json_object, int):
         return list(SplitMode)[json_object]
     return json_object
+
+
+
+def generate_bannerwriter_url(lines: List[List[Banner | None]], direction: Direction, newline_dir: Direction) -> str:
+    output = "https://banner-writer.web.app/?writing="
+    if direction == Direction.Down or direction == Direction.Up:
+        return "Banner writer does not currently support vertical writing direction"
+    if newline_dir != Direction.Down:
+        return "Banner writer does not currently support newline direction Up"
+    if direction == Direction.Left:
+        output += "L"
+    if direction == Direction.Right:
+        output += "R"
+
+    color = Color.White
+    for i,line in enumerate(lines):
+        if i != 0:
+            output += "~"
+        for banner in reversed(line) if direction == Direction.Left else line:
+            if banner == "_":
+                output += "_"
+                continue
+            for layer in banner.all_layers:
+                if color != layer.color:
+                    color = layer.color
+                    output += COLOR_TO_BANNERWRITER_URL_INDEX[color]
+                output += PATTERN_TO_BANNERWRITER_URL_INDEX[layer.pattern]
+    return output
+
+def generate_space_char(distance: int) -> str:
+    return chr(0xD0000 + distance)
+
+def optimize_banners_for_anvil(lines: List[List[Banner | None]], direction: Direction) -> tuple[str, int]:
+    if direction == Direction.Down or direction == Direction.Up:
+        return ("Anvil-optimized text does not support vertical writing direction", 0)
+
+    flattened = lines.pop(0)
+    for line in lines:
+        # This will just treat newlines as spaces, since Anvils cannot have multiple lines.
+        flattened += [None]
+        flattened += line
+    if direction == Direction.Left:
+        print("Reverse")
+        flattened.reverse()
+    print(flattened)
+
+    line_layers = [(banner.all_layers if banner != None else []) for banner in flattened]
+    print(line_layers)
+
+    # Optimization: If a small banner is in between two large banners, it is faster to repeat its layers
+    # than to move forward by a space of only one banner. (Spaces are 2 chars, layers are only 1)
+    for i in range(len(line_layers) - 2):
+        left, middle, right = line_layers[i : i + 3]
+        minimum = min(len(left), len(right))
+        if 0 < len(middle) < minimum:
+            for _ in range(minimum - len(middle)):
+                middle.insert(0, middle[0])
+    print(line_layers)
+
+    output = ""
+    position = 0
+    max_layers = max(len(layers) for layers in line_layers)
+    length = 0
+    # Build all banners in parallel, one layer at a time
+    for i in range(max_layers):
+        for pos,layers in enumerate(line_layers):
+            if len(layers) > i:
+                # Make sure you are at the right position before typing the next character
+                if position != pos:
+                    output += generate_space_char(9 * (pos - position))
+                    position = pos
+                    length += 2
+                output += layers[i].character
+                position += 1
+                length += 1
+
+    return (output, length)
+
+# Limitation: This can currently only handle LTR or RTL writing directions. This is because 
+def writing_description(lines, direction: Direction, newline_dir: Direction) -> str:
+    url = generate_bannerwriter_url(lines, direction, newline_dir)
+    (anvil, length) = optimize_banners_for_anvil(lines, direction)
+    return f"""Anvil-optimized text ({length}/50 characters):
+```
+{anvil}
+```URL: <{url}>"""
