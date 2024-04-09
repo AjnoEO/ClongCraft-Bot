@@ -203,13 +203,14 @@ async def say(ctx: lightbulb.Context) -> None:
         split = split_func(word, names)
         assert split is not None, f"Could not split word {word}"
         split_words += split
-    output = [[]]
+    banners = [[]]
     for word in split_words:
-        if word == banner_set.space_char: output[-1].append(None)
-        elif word == banner_set.newline_char: output.append([])
+        if word == banner_set.space_char: banners[-1].append(None)
+        elif word == banner_set.newline_char: banners.append([])
         else:
             assert word in banner_set.banners, f"Banner set {banner_set_name} does not have a banner for {word}"
-            output[-1].append(banner_set.banners[word].image.resize((20 * scale, 40 * scale), Image.Resampling.NEAREST))
+            banners[-1].append(banner_set.banners[word])
+    output = [[banner.image.resize((20 * scale, 40 * scale), Image.Resampling.NEAREST) if banner else None for banner in line] for line in banners]
     row_length = max(map(len, output))
     output = [row + [None] * (row_length - len(row)) for row in output]
     image_rows, image_cols = len(output), len(output[0])
@@ -232,7 +233,11 @@ async def say(ctx: lightbulb.Context) -> None:
             paste_y = paste_row * 40 * scale + margin + spacing * paste_row
             image.paste(sprite, (paste_x, paste_y))
     async def say_callback(img):
-        await ctx.respond(hikari.File(img), flags = hikari.messages.MessageFlag.EPHEMERAL)
+        await ctx.respond(
+            writing_description(banners, banner_set.writing_direction, banner_set.newline_direction),
+            attachment = hikari.File(img),
+            flags = hikari.messages.MessageFlag.EPHEMERAL
+        )
     await save_temporarily(say_callback, image)
 
 @bot.command
