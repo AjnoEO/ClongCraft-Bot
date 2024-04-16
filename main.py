@@ -190,8 +190,8 @@ async def say(ctx: lightbulb.Context) -> None:
     spacing = ctx.options.spacing or 4 * scale
     assert spacing >= 0, "Spacing must be nonnegative"
     banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
-    last_used[ctx.author.id] = banner_set_name
     assert banner_set_name, "You must have a banner set"
+    last_used[ctx.author.id] = banner_set_name
     banner_sets.setdefault(ctx.author.id, {})
     assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
     banner_set = banner_sets[ctx.author.id][banner_set_name]
@@ -299,10 +299,10 @@ async def set_edit(ctx: lightbulb.Context) -> None:
 async def set_delete(ctx: lightbulb.Context) -> None:
     banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
     assert banner_set_name, "You must have a banner set"
-    last_used.pop(ctx.author.id)
-    banner_sets.setdefault(ctx.author.id, {})
     assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
-    banner_sets[ctx.author.id].pop(banner_set_name)
+    last_used.pop(ctx.author.id, None)
+    banner_sets.setdefault(ctx.author.id, {})
+    banner_sets[ctx.author.id].pop(banner_set_name, None)
     save_banner_data()
     await ctx.respond(
         f"Deleted banner set `{banner_set_name}`!",
