@@ -337,12 +337,9 @@ def optimize_banners_for_anvil(lines: List[List[Banner | None]], direction: Dire
         flattened += [None]
         flattened += line
     if direction == Direction.Left:
-        print("Reverse")
         flattened.reverse()
-    print(flattened)
 
     line_layers = [(banner.all_layers if banner != None else []) for banner in flattened]
-    print(line_layers)
 
     # Optimization: If a small banner is in between two large banners, it is faster to repeat its layers
     # than to move forward by a space of only one banner. (Spaces are 2 chars, layers are only 1)
@@ -352,7 +349,6 @@ def optimize_banners_for_anvil(lines: List[List[Banner | None]], direction: Dire
         if 0 < len(middle) < minimum:
             for _ in range(minimum - len(middle)):
                 middle.insert(0, middle[0])
-    print(line_layers)
 
     output = ""
     position = 0
