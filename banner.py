@@ -298,8 +298,6 @@ def banner_json_decode_hook(json_object):
         return list(SplitMode)[json_object]
     return json_object
 
-
-
 def generate_bannerwriter_url(lines: List[List[Banner | None]], direction: Direction, newline_dir: Direction) -> str:
     output = "https://banner-writer.web.app/?writing="
     if direction == Direction.Down or direction == Direction.Up:
@@ -316,7 +314,7 @@ def generate_bannerwriter_url(lines: List[List[Banner | None]], direction: Direc
         if i != 0:
             output += "~"
         for banner in reversed(line) if direction == Direction.Left else line:
-            if banner == "_":
+            if banner == None:
                 output += "_"
                 continue
             for layer in banner.all_layers:
