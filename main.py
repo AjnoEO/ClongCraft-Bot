@@ -54,6 +54,15 @@ def number_of_columns_for(number_of_banners):
     if number_of_banners <= 56: return 8
     return 9
 
+def get_working_set(ctx: lightbulb.Context, update_last_used: bool = True) -> tuple[BannerSet, str]:
+    banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
+    assert banner_set_name, "You must have a banner set"
+    banner_sets.setdefault(ctx.author.id, {})
+    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
+    if update_last_used:
+        last_used[ctx.author.id] = banner_set_name
+    return banner_sets[ctx.author.id][banner_set_name], banner_set_name
+
 bot = lightbulb.BotApp(token = config["data"]["token"], help_class = None)
 
 @bot.listen(lightbulb.CommandErrorEvent)
@@ -124,13 +133,8 @@ async def from_url(ctx: lightbulb.Context) -> None:
 @lightbulb.command("save", "Save the current banner design into a set")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def save(ctx: lightbulb.Context) -> None:
-    banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
-    assert banner_set_name, "You must have a banner set"
-    banner_sets.setdefault(ctx.author.id, {})
-    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
+    banner_set, banner_set_name = get_working_set(ctx)
     assert ctx.author.id in banner_designs, "You must have a banner design"
-    last_used[ctx.author.id] = banner_set_name
-    banner_set = banner_sets[ctx.author.id][banner_set_name]
     banner_set.banners[ctx.options.name] = banner_designs[ctx.author.id].copy()
     save_banner_data()
     await ctx.respond(
@@ -189,12 +193,7 @@ async def say(ctx: lightbulb.Context) -> None:
     assert margin >= 0, "Margin must be nonnegative"
     spacing = ctx.options.spacing or 4 * scale
     assert spacing >= 0, "Spacing must be nonnegative"
-    banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
-    assert banner_set_name, "You must have a banner set"
-    banner_sets.setdefault(ctx.author.id, {})
-    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
-    last_used[ctx.author.id] = banner_set_name
-    banner_set = banner_sets[ctx.author.id][banner_set_name]
+    banner_set, banner_set_name = get_working_set(ctx)
     words = ctx.options.message.split()
     split_words = []
     split_func = banner_set.split_mode.split
@@ -255,13 +254,9 @@ async def say(ctx: lightbulb.Context) -> None:
 @lightbulb.command("set-edit", "Edit the settings of a banner set. Default for all options is no change")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def set_edit(ctx: lightbulb.Context) -> None:
-    banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
-    assert banner_set_name, "You must have a banner set"
-    banner_sets.setdefault(ctx.author.id, {})
-    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
-    last_used[ctx.author.id] = banner_set_name
-    banner_set = banner_sets[ctx.author.id][banner_set_name]
+    banner_set, banner_set_name = get_working_set(ctx, update_last_used=False)
     new_name = ctx.options.name or banner_set_name
+    banner_sets.setdefault(ctx.author.id, {})
     writing_direction = (
         getattr(Direction, ctx.options.writing_direction.title())
         if ctx.options.writing_direction else banner_set.writing_direction
@@ -276,12 +271,15 @@ async def set_edit(ctx: lightbulb.Context) -> None:
          [s for s in SplitMode if s.value == ctx.options.split_mode][0]
          if ctx.options.split_mode else banner_set.split_mode
     )
+    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
+    assert new_name not in banner_sets[ctx.author.id], f"Banner set {new_name} already exists"
     assert not (set(new_name) & set(" ,./|_")), f"Invalid set name: {new_name}"
     assert len(space_char) == 1, f"Space character must be one character, not {len(space_char)}"
     assert len(newline_char) == 1, f"Newline character must be one character, not {len(newline_char)}"
     assert space_char != newline_char, "Space character and newline character must be distinct"
     assert writing_direction.value % 2 != newline_direction.value % 2, \
         "Writing direction and newline direction must be perpendicular"
+    last_used[ctx.author.id] = new_name
     new_banner_set = BannerSet(writing_direction, newline_direction, space_char, newline_char, split_mode)
     new_banner_set.banners = banner_set.banners
     banner_sets[ctx.author.id].pop(banner_set_name)
@@ -297,10 +295,7 @@ async def set_edit(ctx: lightbulb.Context) -> None:
 @lightbulb.command("set-delete", "Delete a banner set")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def set_delete(ctx: lightbulb.Context) -> None:
-    banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
-    assert banner_set_name, "You must have a banner set"
-    banner_sets.setdefault(ctx.author.id, {})
-    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
+    _, banner_set_name = get_working_set(ctx, update_last_used=False)
     if last_used[ctx.author.id] == banner_set_name:
         last_used.pop(ctx.author.id, None)
     banner_sets[ctx.author.id].pop(banner_set_name, None)
@@ -316,12 +311,7 @@ async def set_delete(ctx: lightbulb.Context) -> None:
 @lightbulb.command("delete", "Delete a banner")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def delete(ctx: lightbulb.Context) -> None:
-    banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
-    assert banner_set_name, "You must have a banner set"
-    banner_sets.setdefault(ctx.author.id, {})
-    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
-    last_used[ctx.author.id] = banner_set_name
-    banner_set = banner_sets[ctx.author.id][banner_set_name]
+    banner_set, banner_set_name = get_working_set(ctx)
     assert ctx.options.name in banner_set.banners, f"Banner {ctx.options.name} does not exist"
     banner_set.banners.pop(ctx.options.name)
     save_banner_data()
@@ -337,12 +327,7 @@ async def delete(ctx: lightbulb.Context) -> None:
 @lightbulb.command("rename", "Rename a banner")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def rename(ctx: lightbulb.Context) -> None:
-    banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
-    assert banner_set_name, "You must have a banner set"
-    banner_sets.setdefault(ctx.author.id, {})
-    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
-    last_used[ctx.author.id] = banner_set_name
-    banner_set = banner_sets[ctx.author.id][banner_set_name]
+    banner_set, banner_set_name = get_working_set(ctx)
     assert ctx.options.name in banner_set.banners, f"Banner {ctx.options.name} does not exist"
     assert ctx.options.new_name not in banner_set.banners, f"Banner {ctx.options.new_name} already exists"
     banner_set.banners[ctx.options.new_name] = banner_set.banners.pop(ctx.options.name)
@@ -362,6 +347,7 @@ async def set_rename(ctx: lightbulb.Context) -> None:
     assert ctx.options.name in banner_sets[ctx.author.id], f"Banner set {ctx.options.name} does not exist"
     assert ctx.options.new_name not in banner_sets[ctx.author.id], f"Banner set {ctx.options.new_name} already exists"
     banner_sets[ctx.author.id][ctx.options.new_name] = banner_sets[ctx.author.id].pop(ctx.options.name)
+    last_used[ctx.author.id] = ctx.options.new_name
     save_banner_data()
     await ctx.respond(
         f"Renamed banner set `{ctx.options.name}` to `{ctx.options.new_name}`!",
@@ -388,12 +374,7 @@ async def set_list(ctx: lightbulb.Context) -> None:
 @lightbulb.command("set-info", "List information on a banner set")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def set_info(ctx: lightbulb.Context) -> None:
-    banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
-    assert banner_set_name, "You must have a banner set"
-    banner_sets.setdefault(ctx.author.id, {})
-    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
-    last_used[ctx.author.id] = banner_set_name
-    banner_set = banner_sets[ctx.author.id][banner_set_name]
+    banner_set, banner_set_name = get_working_set(ctx)
     banners = banner_set.banners
     num_banners_text = "0 banners"
     image = None
@@ -433,12 +414,7 @@ Split mode: `{banner_set.split_mode.value}`
 @lightbulb.command("load", "Load a banner from a set to replace the current design")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def load(ctx: lightbulb.Context) -> None:
-    banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
-    assert banner_set_name, "You must have a banner set"
-    banner_sets.setdefault(ctx.author.id, {})
-    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
-    last_used[ctx.author.id] = banner_set_name
-    banner_set = banner_sets[ctx.author.id][banner_set_name]
+    banner_set, _ = get_working_set(ctx)
     banner = banner_set.banners.get(ctx.options.name)
     assert banner, f"Banner {ctx.options.name} does not exist"
     banner_designs[ctx.author.id] = banner.copy()
