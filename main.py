@@ -191,9 +191,9 @@ async def say(ctx: lightbulb.Context) -> None:
     assert spacing >= 0, "Spacing must be nonnegative"
     banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
     assert banner_set_name, "You must have a banner set"
-    last_used[ctx.author.id] = banner_set_name
     banner_sets.setdefault(ctx.author.id, {})
     assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
+    last_used[ctx.author.id] = banner_set_name
     banner_set = banner_sets[ctx.author.id][banner_set_name]
     words = ctx.options.message.split()
     split_words = []
@@ -257,9 +257,9 @@ async def say(ctx: lightbulb.Context) -> None:
 async def set_edit(ctx: lightbulb.Context) -> None:
     banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
     assert banner_set_name, "You must have a banner set"
-    last_used[ctx.author.id] = banner_set_name
     banner_sets.setdefault(ctx.author.id, {})
     assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
+    last_used[ctx.author.id] = banner_set_name
     banner_set = banner_sets[ctx.author.id][banner_set_name]
     new_name = ctx.options.name or banner_set_name
     writing_direction = (
@@ -299,9 +299,10 @@ async def set_edit(ctx: lightbulb.Context) -> None:
 async def set_delete(ctx: lightbulb.Context) -> None:
     banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
     assert banner_set_name, "You must have a banner set"
-    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
-    last_used.pop(ctx.author.id, None)
     banner_sets.setdefault(ctx.author.id, {})
+    assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
+    if last_used[ctx.author.id] == banner_set_name:
+        last_used.pop(ctx.author.id, None)
     banner_sets[ctx.author.id].pop(banner_set_name, None)
     save_banner_data()
     await ctx.respond(
@@ -317,9 +318,9 @@ async def set_delete(ctx: lightbulb.Context) -> None:
 async def delete(ctx: lightbulb.Context) -> None:
     banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
     assert banner_set_name, "You must have a banner set"
-    last_used[ctx.author.id] = banner_set_name
     banner_sets.setdefault(ctx.author.id, {})
     assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
+    last_used[ctx.author.id] = banner_set_name
     banner_set = banner_sets[ctx.author.id][banner_set_name]
     assert ctx.options.name in banner_set.banners, f"Banner {ctx.options.name} does not exist"
     banner_set.banners.pop(ctx.options.name)
@@ -338,9 +339,9 @@ async def delete(ctx: lightbulb.Context) -> None:
 async def rename(ctx: lightbulb.Context) -> None:
     banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
     assert banner_set_name, "You must have a banner set"
-    last_used[ctx.author.id] = banner_set_name
     banner_sets.setdefault(ctx.author.id, {})
     assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
+    last_used[ctx.author.id] = banner_set_name
     banner_set = banner_sets[ctx.author.id][banner_set_name]
     assert ctx.options.name in banner_set.banners, f"Banner {ctx.options.name} does not exist"
     assert ctx.options.new_name not in banner_set.banners, f"Banner {ctx.options.new_name} already exists"
@@ -389,9 +390,9 @@ async def set_list(ctx: lightbulb.Context) -> None:
 async def set_info(ctx: lightbulb.Context) -> None:
     banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
     assert banner_set_name, "You must have a banner set"
-    last_used[ctx.author.id] = banner_set_name
     banner_sets.setdefault(ctx.author.id, {})
     assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
+    last_used[ctx.author.id] = banner_set_name
     banner_set = banner_sets[ctx.author.id][banner_set_name]
     banners = banner_set.banners
     num_banners_text = "0 banners"
@@ -434,9 +435,9 @@ Split mode: `{banner_set.split_mode.value}`
 async def load(ctx: lightbulb.Context) -> None:
     banner_set_name = ctx.options.set or last_used.get(ctx.author.id)
     assert banner_set_name, "You must have a banner set"
-    last_used[ctx.author.id] = banner_set_name
     banner_sets.setdefault(ctx.author.id, {})
     assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
+    last_used[ctx.author.id] = banner_set_name
     banner_set = banner_sets[ctx.author.id][banner_set_name]
     banner = banner_set.banners.get(ctx.options.name)
     assert banner, f"Banner {ctx.options.name} does not exist"
