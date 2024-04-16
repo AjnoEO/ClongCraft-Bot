@@ -38,6 +38,8 @@ def split(text: str, names: List[str]) -> Optional[List[str]]:
 
 @splitter(SplitMode.Single)
 def split(text: str, names: List[str]) -> Optional[List[str]]:
+    if text in names:
+        return [text]
     splits = all_splits(text, names)
     return splits[0] if len(splits) == 1 else (None if splits else [text])
 
