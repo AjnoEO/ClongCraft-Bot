@@ -272,7 +272,7 @@ async def set_edit(ctx: lightbulb.Context) -> None:
          if ctx.options.split_mode else banner_set.split_mode
     )
     assert banner_set_name in banner_sets[ctx.author.id], f"Banner set {banner_set_name} does not exist"
-    assert new_name not in banner_sets[ctx.author.id], f"Banner set {new_name} already exists"
+    assert new_name == banner_set_name or new_name not in banner_sets[ctx.author.id], f"Banner set {new_name} already exists"
     assert not (set(new_name) & set(" ,./|_")), f"Invalid set name: {new_name}"
     assert len(space_char) == 1, f"Space character must be one character, not {len(space_char)}"
     assert len(newline_char) == 1, f"Newline character must be one character, not {len(newline_char)}"
