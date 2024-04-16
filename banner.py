@@ -299,11 +299,11 @@ def banner_json_decode_hook(json_object):
     return json_object
 
 def generate_bannerwriter_url(lines: List[List[Banner | None]], direction: Direction, newline_dir: Direction) -> str:
-    output = "https://banner-writer.web.app/?writing="
+    output = "banner-writer.web.app/?writing="
     if direction == Direction.Down or direction == Direction.Up:
-        return "Banner writer does not currently support vertical writing direction"
-    if newline_dir != Direction.Down:
-        return "Banner writer does not currently support newline direction Up"
+        return "`Banner writer does not currently support vertical writing direction`"
+    if newline_dir != Direction.Down and len(lines) > 1:
+        return "`Banner writer does not currently support newline direction Up`"
     if direction == Direction.Left:
         output += "L"
     if direction == Direction.Right:
@@ -369,11 +369,20 @@ def optimize_banners_for_anvil(lines: List[List[Banner | None]], direction: Dire
 
     return (output, length)
 
-# Limitation: This can currently only handle LTR or RTL writing directions. This is because 
+# Limitation: This can currently only handle LTR or RTL writing directions. This is because
+#     ... Electra didn’t finish their thought. The reason will forever remain unknown to us
 def writing_description(lines, direction: Direction, newline_dir: Direction) -> str:
-    url = generate_bannerwriter_url(lines, direction, newline_dir)
+    url = urlize(generate_bannerwriter_url(lines, direction, newline_dir))
     (anvil, length) = optimize_banners_for_anvil(lines, direction)
-    return f"""Anvil-optimized text ({length}/50 characters):
+    return \
+f"""
+Anvil-optimized text: `{anvil}`
+URL: {url}
+""" \
+if length == 0 else \
+f"""
+Anvil-optimized text ({length}/50 characters):
 ```
 {anvil}
-```URL: <{url}>"""
+```URL: {url}
+"""

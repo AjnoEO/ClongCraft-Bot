@@ -8,7 +8,7 @@ from PIL import Image, ImageFont
 BASE_FONT = ImageFont.truetype(font="font_noto/NotoSans.ttf")
 
 def urlize(string):
-	return re.sub(r"((https?://)?([\w\d-]+(\.[\w\d-]+)*(\.[\w\d-]{1,4})(/[^/\s]+)*)/?)", r"[\1](<https://\3/>)", string)
+	return re.sub(r"((https?://)?([\w\d-]+(\.[\w\d-]+)*(\.[\w\d-]{1,4})(/[^/\s]+)*)/?)", r"[\1](<https://\3>)", string)
 
 async def save_temporarily(callback, image, *args):
 	if image is None:
