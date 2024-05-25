@@ -7,8 +7,6 @@ from typing import Dict, List, Optional
 from PIL import Image, ImageDraw
 from splitting import SplitMode
 
-# https://discord.com/api/oauth2/authorize?client_id=1175889917990154250&permissions=2147494976&scope=bot
-
 config = ConfigParser()
 config.read("config.ini")
 
