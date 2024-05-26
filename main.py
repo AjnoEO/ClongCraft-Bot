@@ -7,8 +7,15 @@ from typing import Dict, List, Optional
 from PIL import Image, ImageDraw
 from splitting import SplitMode
 
-config = ConfigParser()
-config.read("config.ini")
+if os.path.exists("config.ini"):
+    config = ConfigParser()
+    config.read("config.ini")
+else:
+    raise FileExistsError("config.ini is missing.\n"
+                          "If you cloned or pulled the git repo, "
+                          "make sure to copy example.config.ini, "
+                          "name it config.ini and edit for your needs.")
+    
 
 banner_designs: Dict[int, Banner] = {}
 banner_sets: Dict[int, Dict[str, BannerSet]] = {}
@@ -61,7 +68,21 @@ def get_working_set(ctx: lightbulb.Context, update_last_used: bool = True) -> tu
         last_used[ctx.author.id] = banner_set_name
     return banner_sets[ctx.author.id][banner_set_name], banner_set_name
 
-bot = lightbulb.BotApp(token = config["data"]["token"], help_class = None)
+bot = lightbulb.BotApp(token = config["data"]["token"], 
+                       help_class = None,
+                       intents = hikari.Intents.ALL_UNPRIVILEGED | hikari.Intents.MESSAGE_CONTENT | hikari.Intents.GUILD_MEMBERS)
+    
+if os.path.exists("meta.json"):
+    with open("meta.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+        WELCOME_CHANNEL: hikari.GuildChannel = data["Welcome channel ID"]
+        WELCOME_MESSAGE: str = data["Welcome message"]
+        NO_TEXT_CATEGORIES: List[int] = data["No-text categories"]
+else:
+    raise FileExistsError("meta.json is missing.\n"
+                          "If you cloned or pulled the git repo, "
+                          "make sure to copy example.meta.json, "
+                          "name it meta.json and edit for your needs.")
 
 @bot.listen(lightbulb.CommandErrorEvent)
 async def on_error(event: lightbulb.CommandErrorEvent) -> None:
@@ -93,6 +114,36 @@ async def on_error(event: lightbulb.CommandErrorEvent) -> None:
     else:
         await event.context.respond(r"Uncaught exception! Check the console, <@708440911591243826>. *\*dies\**")
         raise exception
+
+@bot.listen()
+async def on_join(event: hikari.MemberCreateEvent) -> None:
+    message = WELCOME_MESSAGE.format(mention=event.member.mention)
+    channel = WELCOME_CHANNEL
+    await bot.rest.create_message(channel, message)
+
+async def delete_if_necessary(message: hikari.Message):
+    if not message.content:
+        return
+    channel: hikari.GuildChannel = await message.fetch_channel()
+    if channel.type not in [hikari.ChannelType.GUILD_TEXT, hikari.ChannelType.GUILD_VOICE]:
+        return
+    category_id = channel.parent_id
+    if category_id in NO_TEXT_CATEGORIES:
+        await message.delete()
+
+@bot.listen()
+async def on_message_create(event: hikari.MessageCreateEvent) -> None:
+    if event.is_bot:
+        return
+    message = event.message
+    await delete_if_necessary(message)
+
+@bot.listen()
+async def on_message_edit(event: hikari.MessageUpdateEvent) -> None:
+    if event.is_bot:
+        return
+    message = event.message
+    await delete_if_necessary(message)
 
 @bot.command
 @lightbulb.option("code", "Banner design code. Use /getbannercode on the MC server")

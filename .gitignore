@@ -8,6 +8,9 @@ config.ini
 # info about user banners and user sets
 data.json
 
+# info for some additional functionality
+meta.json
+
 # temporarily saved images
 temp/
 

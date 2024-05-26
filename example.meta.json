@@ -1,0 +1,9 @@
+{
+	"Welcome channel ID": 11,
+	"Welcome message": "Hello, {mention}, welcome!",
+	"No-text categories": [
+		0,
+		1,
+		2
+	]
+}
