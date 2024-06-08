@@ -1,6 +1,6 @@
 {
 	"Welcome channel ID": 11,
-	"Welcome message": "Hello, {mention}, welcome!",
+	"Welcome message": "Hello, {mention}, welcome! <:blob_heart:123456789>",
 	"No-text categories": [
 		0,
 		1,
