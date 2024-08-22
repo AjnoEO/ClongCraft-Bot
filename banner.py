@@ -10,11 +10,14 @@ import sys
 from typing import List, Dict, Any
 from utils import urlize, save_temporarily
 
+PATTERNS_COUNT = 42
+COLORS_COUNT = 16
+
 with Image.open("banners.png") as BANNER_SPRITESHEET: BANNER_SPRITESHEET.load()
 SPRITES = []
-for r in range(41):
+for r in range(PATTERNS_COUNT+1):
     row = []
-    for c in range(16):
+    for c in range(COLORS_COUNT):
         row.append(BANNER_SPRITESHEET.crop((c * 40, r * 40, c * 40 + 20, r * 40 + 40)))
     SPRITES.append(row)
 
