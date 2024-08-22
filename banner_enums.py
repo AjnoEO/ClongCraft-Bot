@@ -144,6 +144,8 @@ class Pattern(Enum):
     InvertedChevron = 38
     BaseIndented = 39
     ChiefIndented = 40
+    Flow = 41
+    Guster = 42
 
     @property
     def pretty_name_no_char(self) -> str:
@@ -206,7 +208,9 @@ PATTERN_TO_DATA_VALUE = {
     Pattern.FlowerCharge: "flo",
     Pattern.Thing: "moj",
     Pattern.Globe: "glb",
-    Pattern.Snout: "pig"
+    Pattern.Snout: "pig",
+    Pattern.Flow: "flw",
+    Pattern.Guster: "gus",
 }
 
 PATTERN_TO_BANNERWRITER_URL_INDEX = {
@@ -250,7 +254,9 @@ PATTERN_TO_BANNERWRITER_URL_INDEX = {
     Pattern.Chevron: "q",
     Pattern.InvertedChevron: "r",
     Pattern.BaseIndented: "s",
-    Pattern.ChiefIndented: "t"
+    Pattern.ChiefIndented: "t",
+    Pattern.Flow: "u",
+    Pattern.Guster: "v",
 }
 
 PATTERN_TO_PLANETMINECRAFT_URL_INDEX = {
@@ -293,7 +299,9 @@ PATTERN_TO_PLANETMINECRAFT_URL_INDEX = {
     Pattern.Globe: "F",
     Pattern.Snout: "G",
     Pattern.Gradient: "c",
-    Pattern.BaseGradient: "C"
+    Pattern.BaseGradient: "C",
+    Pattern.Flow: "H",
+    Pattern.Guster: "I",
 }
 
 UNICODE_LOOKALIKES = {
@@ -337,5 +345,7 @@ UNICODE_LOOKALIKES = {
     Pattern.Globe: "⬡",
     Pattern.Snout: "🀹",
     Pattern.Gradient: "⏷",
-    Pattern.BaseGradient: "⏶"
+    Pattern.BaseGradient: "⏶",
+    Pattern.Flow: "𖦹",
+    Pattern.Guster: "⏚"
 }
