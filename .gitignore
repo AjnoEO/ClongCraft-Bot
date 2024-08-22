@@ -20,3 +20,9 @@ __pycache__/
 # PyCharm stuff
 .idea
 venv
+
+# Backups of all kinds
+backups/
+
+# logs
+logs.txt
