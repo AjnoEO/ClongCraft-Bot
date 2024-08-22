@@ -1,5 +1,6 @@
 from enum import Enum
 import re
+from utils import choicify
 
 class Direction(Enum):
     Up = 0
@@ -41,7 +42,7 @@ class Color(Enum):
     def planetminecraft_url_index(self) -> str:
         return COLOR_TO_PLANETMINECRAFT_URL_INDEX[self]
 
-COLOR_CHOICES = [c.pretty_name for c in Color]
+COLOR_CHOICES = choicify([c.pretty_name for c in Color])
 
 COLOR_TO_UNICODE_INDEX = {
     Color.White: 0,
