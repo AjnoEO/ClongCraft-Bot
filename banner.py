@@ -1,4 +1,6 @@
 from banner_enums import *
+import hikari
+import lightbulb
 import inspect
 from json import JSONEncoder
 from PIL import Image
@@ -6,7 +8,7 @@ import re
 from splitting import SplitMode
 import sys
 from typing import List, Dict, Any
-from utils import urlize
+from utils import urlize, save_temporarily
 
 with Image.open("banners.png") as BANNER_SPRITESHEET: BANNER_SPRITESHEET.load()
 SPRITES = []
@@ -120,7 +122,7 @@ class Banner:
     def __repr__(self) -> str: return f"Banner[{', '.join(repr(layer) for layer in self.all_layers)}]"
 
     @property
-    def image(self) -> Image:
+    def image(self) -> Image.Image:
         output = Image.new("RGBA", (20, 40))
         for layer in self.all_layers:
             output.alpha_composite(layer.sprite)
@@ -229,6 +231,17 @@ Layers:
 
     def copy(self) -> "Banner":
         return Banner(self.base_color, [layer.copy() for layer in self.layers])
+
+async def __pattern_update_callback(path, ctx: lightbulb.Context, text: str, for_everyone: bool):
+	await ctx.respond(
+		text,
+		attachment = hikari.File(path),
+		ephemeral = not for_everyone
+	)
+
+async def respond_with_banner(ctx, banner: Banner, for_everyone = False):
+	await save_temporarily(__pattern_update_callback, banner.image.resize((80, 160), Image.Resampling.NEAREST),
+						   ctx, banner.description, for_everyone)
 
 class BannerSet:
     def __init__(self, writing_direction: Direction, newline_direction: Direction, space_char: str, newline_char: str,
