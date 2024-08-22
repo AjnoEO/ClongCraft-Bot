@@ -79,6 +79,10 @@ bot = hikari.GatewayBot(
 )
 lightbulb_client = lightbulb.client_from_app(bot)
 
+@bot.listen(hikari.StartingEvent)
+async def on_starting(_: hikari.StartingEvent) -> None:
+    await lightbulb_client.start()
+
 if os.path.exists("meta.json"):
     with open("meta.json", "r", encoding="utf-8") as f:
         data = json.load(f)
