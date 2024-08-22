@@ -36,14 +36,15 @@ def save_banner_data():
             "last_used": last_used
         }, f, cls = BannerJSONEncoder, indent = 4)
 
-async def layer_autocomplete(ctx: lightbulb.AutocompleteContext[str]) -> List[str]:
+async def layer_autocomplete(ctx: lightbulb.AutocompleteContext[str]) -> None:
     banner = banner_designs.get(ctx.interaction.user.id)
     if not banner:
-        ctx.respond([])
+        await ctx.respond([])
         return
     layers = [f"{i+1}. {layer.color.pretty_name} {layer.pattern.pretty_name}" for i, layer in enumerate(banner.layers)]
     input_data = ctx.focused.value.lower()
-    return [layer for layer in layers if input_data in layer.lower()]
+    await ctx.respond([layer for layer in layers if input_data in layer.lower()])
+    return
 
 def layer_to_index(ctx: lightbulb.Context, layer: str) -> Optional[int]:
     banner = banner_designs.get(ctx.user.id)

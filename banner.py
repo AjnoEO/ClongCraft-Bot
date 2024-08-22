@@ -18,12 +18,13 @@ for r in range(41):
         row.append(BANNER_SPRITESHEET.crop((c * 40, r * 40, c * 40 + 20, r * 40 + 40)))
     SPRITES.append(row)
 
-async def pattern_autocomplete(option, interaction):
+async def pattern_autocomplete(ctx: lightbulb.AutocompleteContext[str]) -> None:
     output = []
-    input_data = option.value.lower()
+    input_data = ctx.focused.value.lower()
     for p in Pattern:
         if p != Pattern.Banner and input_data in p.pretty_name.lower(): output.append(p.pretty_name)
-    return sorted(output, key = str.lower)[:25]
+    await ctx.respond(sorted(output, key = str.lower)[:25])
+    return
 
 class Layer:
     def __init__(self, color: Color, pattern: Pattern):
