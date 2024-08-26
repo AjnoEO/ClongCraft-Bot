@@ -71,6 +71,13 @@ def get_working_set(user_id: int, set: str, update_last_used: bool = True) -> tu
         last_used[user_id] = banner_set_name
     return banner_sets[user_id][banner_set_name], banner_set_name
 
+def char_option(provided_value: str | None, current_value: str):
+    if not provided_value:
+        return current_value
+    if provided_value.lower() == "space":
+        return " "
+    return provided_value
+
 bot = hikari.GatewayBot(
     token=config["data"]["token"],
     # help_class=None,
@@ -349,25 +356,33 @@ class say(
         spacing = self.spacing or 4 * scale
         assert spacing >= 0, "Spacing must be nonnegative"
         banner_set, banner_set_name = get_working_set(ctx.user.id, self.set)
-        words = self.message.split()
-        split_words = []
-        split_func = banner_set.split_mode.split
+        lines = self.message.split(banner_set.newline_char)
+        words: list[list[str]] = [line.split(banner_set.space_char) for line in lines]
+            # if word == banner_set.space_char:
+            #     banners[-1].append(None)
+            # elif word == banner_set.newline_char:
+            #     banners.append([])
+            # else:
+            #     assert (
+            #         word in banner_set.banners
+            #     ), f"Banner set {banner_set_name} does not have a banner for {word}"
+            #     banners[-1].append(banner_set.banners[word])
+        split_mode = banner_set.split_mode
+        split_func = split_mode.split
         names = list(banner_set.banners.keys())
-        for word in words:
-            split = split_func(word, names)
-            assert split is not None, f"Could not split word {word}"
-            split_words += split
-        banners = [[]]
-        for word in split_words:
-            if word == banner_set.space_char:
-                banners[-1].append(None)
-            elif word == banner_set.newline_char:
-                banners.append([])
-            else:
-                assert (
-                    word in banner_set.banners
-                ), f"Banner set {banner_set_name} does not have a banner for {word}"
-                banners[-1].append(banner_set.banners[word])
+        banners: list[list[Banner]] = []
+        for line in words:
+            banners.append([])
+            for i, word in enumerate(line):
+                if i > 0: banners[-1].append(None)
+                subwords = word.split()
+                for subword in subwords:
+                    split = split_func(subword, names)
+                    assert split is not None, \
+                        (f"Banner set {banner_set_name} doesn’t have a banner for “{word}”"
+                        if split_mode == SplitMode.No else
+                        f"Could not split “{word}” into {banner_set_name} banners")
+                    banners[-1] += [banner_set.banners[b] for b in split]
         output = [
             [
                 (
@@ -451,9 +466,11 @@ class set_edit(
         default=None,
         choices=DIRECTION_CHOICES,
     )
-    space_char = lightbulb.string("space_char", "The space character", default=None)
+    space_char = lightbulb.string(
+        "space_char", "The space character. Input “space” to use space for spaces", default=None
+    )
     newline_char = lightbulb.string(
-        "newline_char", "The newline character", default=None
+        "newline_char", "The newline character. Input “space” to use space for newlines", default=None
     )
     split_mode = lightbulb.string(
         "split_mode",
@@ -477,8 +494,8 @@ class set_edit(
             if self.newline_direction
             else banner_set.newline_direction
         )
-        space_char = self.space_char or banner_set.space_char
-        newline_char = self.newline_char or banner_set.newline_char
+        space_char = char_option(self.space_char, banner_set.space_char)
+        newline_char = char_option(self.newline_char, banner_set.newline_char)
         split_mode = (
             [s for s in SplitMode if s.value == self.split_mode][0]
             if self.split_mode
