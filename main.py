@@ -71,6 +71,13 @@ def get_working_set(user_id: int, set: str, update_last_used: bool = True) -> tu
         last_used[user_id] = banner_set_name
     return banner_sets[user_id][banner_set_name], banner_set_name
 
+def char_option(provided_value: str | None, current_value: str):
+    if not provided_value:
+        return current_value
+    if provided_value.lower() == "space":
+        return " "
+    return provided_value
+
 bot = hikari.GatewayBot(
     token=config["data"]["token"],
     # help_class=None,
@@ -459,9 +466,11 @@ class set_edit(
         default=None,
         choices=DIRECTION_CHOICES,
     )
-    space_char = lightbulb.string("space_char", "The space character", default=None)
+    space_char = lightbulb.string(
+        "space_char", "The space character. Input “space” to use space for spaces", default=None
+    )
     newline_char = lightbulb.string(
-        "newline_char", "The newline character", default=None
+        "newline_char", "The newline character. Input “space” to use space for newlines", default=None
     )
     split_mode = lightbulb.string(
         "split_mode",
@@ -485,8 +494,8 @@ class set_edit(
             if self.newline_direction
             else banner_set.newline_direction
         )
-        space_char = self.space_char or banner_set.space_char
-        newline_char = self.newline_char or banner_set.newline_char
+        space_char = char_option(self.space_char, banner_set.space_char)
+        newline_char = char_option(self.newline_char, banner_set.newline_char)
         split_mode = (
             [s for s in SplitMode if s.value == self.split_mode][0]
             if self.split_mode
