@@ -24,7 +24,7 @@ def splitter(split_mode: SplitMode):
 
 @splitter(SplitMode.No)
 def split(text: str, names: List[str]) -> Optional[List[str]]:
-    return [text]
+    return [text] if text in names else None
 
 @splitter(SplitMode.Longest)
 def split(text: str, names: List[str]) -> Optional[List[str]]:

@@ -349,25 +349,33 @@ class say(
         spacing = self.spacing or 4 * scale
         assert spacing >= 0, "Spacing must be nonnegative"
         banner_set, banner_set_name = get_working_set(ctx.user.id, self.set)
-        words = self.message.split()
-        split_words = []
-        split_func = banner_set.split_mode.split
+        lines = self.message.split(banner_set.newline_char)
+        words: list[list[str]] = [line.split(banner_set.space_char) for line in lines]
+            # if word == banner_set.space_char:
+            #     banners[-1].append(None)
+            # elif word == banner_set.newline_char:
+            #     banners.append([])
+            # else:
+            #     assert (
+            #         word in banner_set.banners
+            #     ), f"Banner set {banner_set_name} does not have a banner for {word}"
+            #     banners[-1].append(banner_set.banners[word])
+        split_mode = banner_set.split_mode
+        split_func = split_mode.split
         names = list(banner_set.banners.keys())
-        for word in words:
-            split = split_func(word, names)
-            assert split is not None, f"Could not split word {word}"
-            split_words += split
-        banners = [[]]
-        for word in split_words:
-            if word == banner_set.space_char:
-                banners[-1].append(None)
-            elif word == banner_set.newline_char:
-                banners.append([])
-            else:
-                assert (
-                    word in banner_set.banners
-                ), f"Banner set {banner_set_name} does not have a banner for {word}"
-                banners[-1].append(banner_set.banners[word])
+        banners: list[list[Banner]] = []
+        for line in words:
+            banners.append([])
+            for i, word in enumerate(line):
+                if i > 0: banners[-1].append(None)
+                subwords = word.split()
+                for subword in subwords:
+                    split = split_func(subword, names)
+                    assert split is not None, \
+                        (f"Banner set {banner_set_name} doesn’t have a banner for “{word}”"
+                        if split_mode == SplitMode.No else
+                        f"Could not split “{word}” into {banner_set_name} banners")
+                    banners[-1] += [banner_set.banners[b] for b in split]
         output = [
             [
                 (
