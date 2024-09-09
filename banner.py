@@ -53,7 +53,7 @@ class Layer:
         return "\uE000\U000CFFF7"
 
     @property
-    def sprite(self) -> Image:
+    def sprite(self) -> Image.Image:
         return SPRITES[self.pattern.value][self.color.unicode_index]
 
     @property
