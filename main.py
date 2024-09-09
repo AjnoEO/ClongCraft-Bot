@@ -356,7 +356,11 @@ class say(
         assert spacing >= 0, "Spacing must be nonnegative"
         banner_set, banner_set_name = get_working_set(ctx.user.id, self.set)
         lines = self.message.split(banner_set.newline_char)
-        words: list[list[str]] = [line.split() for line in lines]
+        words: list[list[str]] = [
+            line.replace(banner_set.space_char, " " + banner_set.space_char + " ").split()
+            if banner_set.space_char != " " else line.split(" ")
+            for line in lines
+        ]
             # if word == banner_set.space_char:
             #     banners[-1].append(None)
             # elif word == banner_set.newline_char:
@@ -376,6 +380,8 @@ class say(
                 if word == banner_set.space_char:
                     banners[-1].append(None)
                     continue
+                if banner_set.space_char == " " and i > 0:
+                    banners[-1].append(None)
                 subwords = word.split()
                 for subword in subwords:
                     split = split_func(subword, names)
