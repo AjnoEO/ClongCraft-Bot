@@ -41,7 +41,7 @@ def split(text: str, names: List[str]) -> Optional[List[str]]:
     if text in names:
         return [text]
     splits = all_splits(text, names)
-    return splits[0] if len(splits) == 1 else (None if splits else [text])
+    return splits[0] if len(splits) == 1 else None
 
 def all_splits(text: str, names: List[str]) -> List[List[str]]:
     output = _all_splits(text, names)
