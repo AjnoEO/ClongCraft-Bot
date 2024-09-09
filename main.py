@@ -356,11 +356,7 @@ class say(
         assert spacing >= 0, "Spacing must be nonnegative"
         banner_set, banner_set_name = get_working_set(ctx.user.id, self.set)
         lines = self.message.split(banner_set.newline_char)
-        words: list[list[str]] = [
-            line.replace(banner_set.space_char, " " + banner_set.space_char + " ").split()
-            if banner_set.space_char != " " else line.split(" ")
-            for line in lines
-        ]
+        words: list[list[str]] = [line.split(banner_set.space_char) for line in lines]
             # if word == banner_set.space_char:
             #     banners[-1].append(None)
             # elif word == banner_set.newline_char:
@@ -377,18 +373,14 @@ class say(
         for line in words:
             banners.append([])
             for i, word in enumerate(line):
-                if word == banner_set.space_char:
-                    banners[-1].append(None)
-                    continue
-                if banner_set.space_char == " " and i > 0:
-                    banners[-1].append(None)
+                if i > 0: banners[-1].append(None)
                 subwords = word.split()
                 for subword in subwords:
                     split = split_func(subword, names)
                     assert split is not None, \
-                        (f"Banner set {banner_set_name} doesn’t have a banner for “{word}”"
+                        (f"Banner set {banner_set_name} doesn’t have a banner for “{subword}”"
                         if split_mode == SplitMode.No else
-                        f"Could not split “{word}” into {banner_set_name} banners")
+                        f"Could not split “{subword}” into {banner_set_name} banners")
                     banners[-1] += [banner_set.banners[b] for b in split]
         output = [
             [
