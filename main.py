@@ -1,4 +1,3 @@
-import hikari, lightbulb, os, json
 from json import JSONDecoder
 from configparser import ConfigParser
 from banner import *
@@ -6,6 +5,7 @@ from utils import *
 from typing import Dict, List, Optional
 from PIL import Image, ImageDraw
 from splitting import SplitMode
+import hikari, lightbulb, os, json
 
 if os.path.exists("config.ini"):
     config = ConfigParser()
@@ -98,10 +98,10 @@ if os.path.exists("meta.json"):
         WELCOME_MESSAGE: str = data["Welcome message"]
         NO_TEXT_CATEGORIES: List[int] = data["No-text categories"]
 else:
-    raise FileExistsError("meta.json is missing.\n"
-                          "If you cloned or pulled the git repo, "
-                          "make sure to copy example.meta.json, "
-                          "name it meta.json and edit for your needs.")
+    raise FileNotFoundError("meta.json is missing.\n"
+                            "If you cloned or pulled the git repo, "
+                            "make sure to copy example.meta.json, "
+                            "name it meta.json and edit for your needs.")
 
 DIRECTION_CHOICES = choicify(["up", "down", "left", "right"])
 
@@ -113,7 +113,6 @@ async def handler(exc: lightbulb.exceptions.ExecutionPipelineFailedException) ->
         error_cause = exc.invocation_failure
     else:
         error_cause = exc.hook_failures[0]
-    error_message = ""
     if isinstance(error_cause, AssertionError):
         error_message = str(error_cause)
         handled = True
@@ -357,7 +356,7 @@ class say(
         assert spacing >= 0, "Spacing must be nonnegative"
         banner_set, banner_set_name = get_working_set(ctx.user.id, self.set)
         lines = self.message.split(banner_set.newline_char)
-        words: list[list[str]] = [line.split(banner_set.space_char) for line in lines]
+        words: list[list[str]] = [line.split() for line in lines]
             # if word == banner_set.space_char:
             #     banners[-1].append(None)
             # elif word == banner_set.newline_char:
@@ -370,11 +369,13 @@ class say(
         split_mode = banner_set.split_mode
         split_func = split_mode.split
         names = list(banner_set.banners.keys())
-        banners: list[list[Banner]] = []
+        banners: list[list[Banner | None]] = []
         for line in words:
             banners.append([])
             for i, word in enumerate(line):
-                if i > 0: banners[-1].append(None)
+                if word == banner_set.space_char:
+                    banners[-1].append(None)
+                    continue
                 subwords = word.split()
                 for subword in subwords:
                     split = split_func(subword, names)
@@ -413,6 +414,8 @@ class say(
                 paste_col = image_cols - r - 1
             elif banner_set.newline_direction == Direction.Right:
                 paste_col = r
+            else:
+                raise ValueError("Invalid newline direction")
             for c, sprite in enumerate(row):
                 if not sprite:
                     continue
@@ -424,6 +427,8 @@ class say(
                     paste_col = image_cols - c - 1
                 elif banner_set.writing_direction == Direction.Right:
                     paste_col = c
+                else:
+                    raise ValueError("Invalid writing direction")
                 paste_x = paste_col * 20 * scale + margin + spacing * paste_col
                 paste_y = paste_row * 40 * scale + margin + spacing * paste_row
                 image.paste(sprite, (paste_x, paste_y))
