@@ -134,6 +134,7 @@ async def on_starting(_: hikari.StartingEvent) -> None:
 if os.path.exists("meta.json"):
     with open("meta.json", "r", encoding="utf-8") as f:
         data = json.load(f)
+        GUILD_ID: int = data["Guild ID"]
         WELCOME_CHANNEL: hikari.GuildChannel = data["Welcome channel ID"]
         WELCOME_MESSAGE: str = data["Welcome message"]
         NO_TEXT_CATEGORIES: List[int] = data["No-text categories"]
@@ -1108,7 +1109,7 @@ async def create_message(channel: hikari.TextableChannel, name: str, text: str, 
     msg.id = message.id
     messages[name] = msg
     save_message_data()
-    return f"New message `{msg.name}` created: {message.make_link(message.guild_id)}"
+    return f"New message `{msg.name}` created: {msg.url(GUILD_ID)}"
 
 message_creation_processes: dict[int, tuple[hikari.TextableChannel, str]] = {}
 
@@ -1144,6 +1145,8 @@ class message_create(
 
     @lightbulb.invoke
     async def message_create(self, ctx: lightbulb.Context) -> None:
+        if self.name in messages:
+            raise UserWarning(f"There is already a message with name `{self.name}`: {messages[self.name].url(GUILD_ID)}")
         if not self.text:
             message_creation_processes[ctx.user.id] = (self.channel, self.name)
             modal = CreateModal(title=f"Create Admin Message: {self.name}")
@@ -1161,7 +1164,7 @@ async def edit_message(name: str, text: str, user_id: int):
     msg.last_editor = user_id
     message = await bot.rest.edit_message(msg.channel_id, msg.id, msg.text.with_values(**variables))
     save_message_data()
-    return f"Edited message `{msg.name}` {message.make_link(message.guild_id)}"
+    return f"Edited message `{msg.name}` {msg.url(GUILD_ID)}"
 
 message_editing_processes: dict[int, str] = {}
 
@@ -1242,7 +1245,7 @@ class message_list(
             return
         response = "There is 1 admin message:" if len(messages) == 1 else f"There are {len(messages)} admin messages:"
         for msg in messages.values():
-            response += f"\n- `{msg.name}` https://discord.com/channels/{ctx.guild_id}/{msg.channel_id}/{msg.id}"
+            response += f"\n- `{msg.name}` {msg.url(GUILD_ID)}"
         await ctx.respond(response, ephemeral = not self.for_everyone)
 
 
@@ -1262,7 +1265,7 @@ class message_info(
     @lightbulb.invoke
     async def message_info(self, ctx: lightbulb.Context) -> None:
         msg = messages[self.name]
-        response = f"### Message `{msg.name}` https://discord.com/channels/{ctx.guild_id}/{msg.channel_id}/{msg.id}"
+        response = f"### Message `{msg.name}` {msg.url(GUILD_ID)}"
         if msg.og_author:
             response += f"\nOriginal author: <@{msg.og_author}>"
         if msg.last_editor:

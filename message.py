@@ -66,6 +66,9 @@ class Message(JSONifyable):
         if self.last_editor: args.append(self.last_editor)
         return args
 
+    def url(self, guild_id: int):
+        return f"https://discord.com/channels/{guild_id}/{self.channel_id}/{self.id}"
+
 class Variable(JSONifyable):
     def __init__(self, name: str, value: str = None):
         self.name = name
