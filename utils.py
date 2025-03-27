@@ -5,6 +5,12 @@ import random
 import re
 from PIL import Image, ImageFont
 
+class JSONifyable:
+    @property
+    def args(self): ...
+	
+    def jsonify(self): return {"__type": self.__class__.__name__, "args": self.args}
+
 BASE_FONT = ImageFont.truetype(font="font_noto/NotoSans.ttf")
 
 def urlize(string):

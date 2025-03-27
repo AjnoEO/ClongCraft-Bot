@@ -5,8 +5,9 @@
 # bot token
 config.ini
 
-# info about user banners and user sets
+# info about user banners, user sets, messages and stuff
 data.json
+messages.json
 
 # info for some additional functionality
 meta.json

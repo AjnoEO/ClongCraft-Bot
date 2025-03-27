@@ -1,11 +1,12 @@
 from json import JSONDecoder
 from configparser import ConfigParser
 from banner import *
+from message import *
 from utils import *
 from typing import Dict, List, Optional
 from PIL import Image, ImageDraw
 from splitting import SplitMode
-import hikari, lightbulb, os, json
+import hikari, lightbulb, miru, os, json
 
 if os.path.exists("config.ini"):
     config = ConfigParser()
@@ -35,6 +36,37 @@ def save_banner_data():
             "sets": banner_sets,
             "last_used": last_used
         }, f, cls = BannerJSONEncoder, indent = 4)
+
+messages: dict[str, Message] = {}
+variables: dict[str, Variable] = {}
+var_to_msg: dict[str, list[str]] = {}
+
+if os.path.exists("messages.json"):
+    with open("messages.json", encoding="utf-8") as f:
+        data = JSONDecoder(object_hook=message_json_decode_hook).decode(f.read())
+    messages = {m.name: m for m in data["messages"]}
+    variables = {v.name: v for v in data["variables"]}
+
+def update_var_to_msg():
+    global var_to_msg
+    var_to_msg = {}
+    for msg_name, msg in messages.items():
+        for var_name in msg.text.variables:
+            var_to_msg.setdefault(var_name, [])
+            var_to_msg[var_name].append(msg_name)
+    for var_name in variables:
+        if not var_name in var_to_msg:
+            del variables[var_name]
+
+update_var_to_msg()
+
+def save_message_data():
+    with open("messages.json", "w") as f:
+        json.dump({
+            "messages": list(messages.values()),
+            "variables": list(variables.values())
+        }, f, cls = MessageJSONEncoder, indent = 4)
+    update_var_to_msg()
 
 async def layer_autocomplete(ctx: lightbulb.AutocompleteContext[str]) -> None:
     banner = banner_designs.get(ctx.interaction.user.id)
@@ -86,10 +118,18 @@ bot = hikari.GatewayBot(
     | hikari.Intents.GUILD_MEMBERS,
 )
 lightbulb_client = lightbulb.client_from_app(bot)
+miru_client = miru.Client(bot)
+lightbulb_client.di.registry_for(
+    lightbulb.di.Contexts.DEFAULT
+).register_value(miru.Client, miru_client)
 
 @bot.listen(hikari.StartingEvent)
 async def on_starting(_: hikari.StartingEvent) -> None:
     await lightbulb_client.start()
+    for name, msg in messages.items():
+        try: await bot.rest.fetch_message(msg.channel_id, msg.id)
+        except hikari.NotFoundError: del messages[name]
+        save_message_data()
 
 if os.path.exists("meta.json"):
     with open("meta.json", "r", encoding="utf-8") as f:
@@ -165,6 +205,14 @@ async def on_message_edit(event: hikari.MessageUpdateEvent) -> None:
         return
     message = event.message
     await delete_if_necessary(message)
+
+@bot.listen()
+async def on_message_delete(event: hikari.MessageDeleteEvent) -> None:
+    for name, msg in messages.items():
+        if msg.channel_id == event.channel_id and msg.id == event.message_id:
+            del messages[name]
+            save_message_data()
+            return
 
 @lightbulb_client.register
 class From_code(
@@ -1034,6 +1082,262 @@ class patterns(
         await save_temporarily(callback, image)
 
 
+message_cmd_group = lightbulb.Group(
+    "message", 
+    "Admin message commands", 
+    default_member_permissions=hikari.Permissions.ADMINISTRATOR
+)
+
+
+async def message_name_autocomplete(ctx: lightbulb.AutocompleteContext[str]) -> None:
+    input_data = ctx.focused.value
+    names = [name for name in messages.keys() if name.startswith(input_data)]
+    names += [name for name in messages.keys() if not name.startswith(input_data) and input_data in name]
+    if len(names) > 25: names = names[:25]
+    await ctx.respond(names)
+    return
+
+
+async def create_message(channel: hikari.TextableChannel, name: str, text: str, user_id: int):
+    msg = Message(name, text, channel.id, og_author=user_id)
+    for var in msg.text.variables:
+        if var not in variables:
+            variables[var] = Variable(var)
+    text = msg.text.with_values(**variables)
+    message = await bot.rest.create_message(channel, text)
+    msg.id = message.id
+    messages[name] = msg
+    save_message_data()
+    return f"New message `{msg.name}` created: {message.make_link(message.guild_id)}"
+
+message_creation_processes: dict[int, tuple[hikari.TextableChannel, str]] = {}
+
+class CreateModal(miru.Modal, title="Create Admin Message"):
+    text = miru.TextInput(
+        label="Text",
+        style=hikari.TextInputStyle.PARAGRAPH,
+        placeholder="Use {{variable_name}} to declare variables",
+        required=True
+    )
+
+    async def callback(self, ctx: miru.ModalContext) -> None:
+        await ctx.respond(
+            await create_message(*message_creation_processes.pop(ctx.user.id), self.text.value, ctx.user.id),
+            flags=hikari.MessageFlag.EPHEMERAL
+        )
+
+@message_cmd_group.register
+class message_create(
+    lightbulb.SlashCommand,
+    name="create",
+    description="Create an admin message"
+):
+    channel = lightbulb.channel(
+        "channel", "The channel to send the message to", channel_types=[hikari.ChannelType.GUILD_TEXT]
+    )
+    name = lightbulb.string(
+        "name", "The name of the message to refer to later when editing it"
+    )
+    text = lightbulb.string(
+        "message", "The message. Use `{{variable_name}}` to declare variables", default=None
+    )
+
+    @lightbulb.invoke
+    async def message_create(self, ctx: lightbulb.Context) -> None:
+        if not self.text:
+            message_creation_processes[ctx.user.id] = (self.channel, self.name)
+            modal = CreateModal(title=f"Create Admin Message: {self.name}")
+            builder = modal.build_response(miru_client)
+            await builder.create_modal_response(ctx.interaction)
+            miru_client.start_modal(modal)
+            return
+        await ctx.respond(await create_message(self.channel, self.name, self.text, ctx.user.id), ephemeral=True)
+        return
+
+
+async def edit_message(name: str, text: str, user_id: int):
+    msg = messages[name]
+    msg.text = text
+    msg.last_editor = user_id
+    message = await bot.rest.edit_message(msg.channel_id, msg.id, msg.text.with_values(**variables))
+    save_message_data()
+    return f"Edited message `{msg.name}` {message.make_link(message.guild_id)}"
+
+message_editing_processes: dict[int, str] = {}
+
+class EditModal(miru.Modal, title="Edit Admin Message"):
+    text = miru.TextInput(
+        label="Text",
+        style=hikari.TextInputStyle.PARAGRAPH,
+        placeholder="Use {{variable_name}} to declare variables",
+        required=True
+    )
+
+    async def callback(self, ctx: miru.ModalContext) -> None:
+        await ctx.respond(
+            await edit_message(message_editing_processes.pop(ctx.user.id), self.text.value, ctx.user.id),
+            flags=hikari.MessageFlag.EPHEMERAL
+        )
+
+@message_cmd_group.register
+class message_edit(
+    lightbulb.SlashCommand,
+    name="edit",
+    description="Edit an admin message"
+):
+    name = lightbulb.string(
+        "name", "The name of the message to edit", autocomplete=message_name_autocomplete
+    )
+    text = lightbulb.string(
+        "text", "The new text of the message", default=None
+    )
+
+    @lightbulb.invoke
+    async def message_edit(self, ctx: lightbulb.Context) -> None:
+        if not self.text:
+            message_editing_processes[ctx.user.id] = self.name
+            modal = EditModal(title=f"Edit Admin Message: {self.name}")
+            modal.text.value = messages[self.name].text.raw
+            builder = modal.build_response(miru_client)
+            await builder.create_modal_response(ctx.interaction)
+            miru_client.start_modal(modal)
+            return
+        await ctx.respond(await edit_message(self.name, self.text, ctx.user.id), ephemeral=True)
+        return
+    
+
+@message_cmd_group.register
+class message_delete(
+    lightbulb.SlashCommand,
+    name="delete",
+    description="Delete an admin message"
+):
+    name = lightbulb.string(
+        "name", "The name of the message to delete", autocomplete=message_name_autocomplete
+    )
+
+    @lightbulb.invoke
+    async def message_edit(self, ctx: lightbulb.Context) -> None:
+        msg = messages[self.name]
+        await bot.rest.delete_message(msg.channel_id, msg.id, reason=f"Deleted by admin <@{ctx.user.id}>")
+        del messages[self.name]
+        save_message_data()
+        await ctx.respond(f"Deleted message `{msg.name}`", ephemeral=True)
+
+
+@message_cmd_group.register
+class message_list(
+    lightbulb.SlashCommand,
+    name="list",
+    description="List the admin messages"
+):
+    for_everyone = lightbulb.boolean(
+        "for_everyone", "Set to true to send to everyone", default=False
+    )
+
+    @lightbulb.invoke
+    async def message_list(self, ctx: lightbulb.Context) -> None:
+        if not messages:
+            await ctx.respond("There are no admin messages right now", ephemeral = not self.for_everyone)
+            return
+        response = "There is 1 admin message:" if len(messages) == 1 else f"There are {len(messages)} admin messages:"
+        for msg in messages.values():
+            response += f"\n- `{msg.name}` https://discord.com/channels/{ctx.guild_id}/{msg.channel_id}/{msg.id}"
+        await ctx.respond(response, ephemeral = not self.for_everyone)
+
+
+@message_cmd_group.register
+class message_info(
+    lightbulb.SlashCommand,
+    name="info",
+    description="View info about an admin message"
+):
+    name = lightbulb.string(
+        "name", "The name of the message to delete", autocomplete=message_name_autocomplete
+    )
+    for_everyone = lightbulb.boolean(
+        "for_everyone", "Set to true to send to everyone", default=False
+    )
+
+    @lightbulb.invoke
+    async def message_info(self, ctx: lightbulb.Context) -> None:
+        msg = messages[self.name]
+        response = f"### Message `{msg.name}` https://discord.com/channels/{ctx.guild_id}/{msg.channel_id}/{msg.id}"
+        if msg.og_author:
+            response += f"\nOriginal author: <@{msg.og_author}>"
+        if msg.last_editor:
+            response += f"\nLast edited by <@{msg.last_editor}>"
+        if msg.text.variables:
+            response += "\nVariables:"
+            for var_name in msg.text.variables:
+                var = variables[var_name]
+                response += f"\n- {var}"
+        await ctx.respond(response, ephemeral = not self.for_everyone)
+
+
+variable_cmd_subgroup = message_cmd_group.subgroup(
+    "variable",
+    "Commands for managing variables in admin messages"
+)
+
+async def variable_name_autocomplete(ctx: lightbulb.AutocompleteContext[str]) -> None:
+    input_data = ctx.focused.value
+    names = [name for name in variables.keys() if name.startswith(input_data)]
+    names += [name for name in variables.keys() if not name.startswith(input_data) and input_data in name]
+    if len(names) > 25: names = names[:25]
+    await ctx.respond(names)
+    return
+
+
+@variable_cmd_subgroup.register
+class variable_set(
+    lightbulb.SlashCommand,
+    name="set",
+    description="Set the variable value and update the corresponding messages"
+):
+    name = lightbulb.string(
+        "name", "The name of the variable to edit", autocomplete=variable_name_autocomplete
+    )
+    value = lightbulb.string(
+        "value", "New value for the variable"
+    )
+
+    @lightbulb.invoke
+    async def variable_set(self, ctx: lightbulb.Context):
+        await ctx.defer(ephemeral=True)
+        var = variables[self.name]
+        var.value = self.value
+        for msg_name in var_to_msg[var.name]:
+            msg = messages[msg_name]
+            await bot.rest.edit_message(msg.channel_id, msg.id, msg.text.with_values(**variables))
+        save_message_data()
+        response = f"Set variable value: {var}"
+        if self.name in var_to_msg:
+            msg_count = len(var_to_msg[self.name])
+            response += "\n1 message was updated" if msg_count == 1 else f"\n{msg_count} messages were updated"
+        await ctx.respond(response, ephemeral=True)
+
+
+@variable_cmd_subgroup.register
+class variable_list(
+    lightbulb.SlashCommand,
+    name="list",
+    description="List the variables used in admin messages"
+):
+    for_everyone = lightbulb.boolean(
+        "for_everyone", "Set to true to send to everyone", default=False
+    )
+
+    @lightbulb.invoke
+    async def message_list(self, ctx: lightbulb.Context) -> None:
+        if not variables:
+            await ctx.respond("There are no variables in admin messages right now", ephemeral = not self.for_everyone)
+            return
+        response = "There is 1 variable:" if len(variables) == 1 else f"There are {len(variables)} variables:"
+        for var in variables.values(): response += f"\n- {var}"
+        await ctx.respond(response, ephemeral = not self.for_everyone)
+
+
 # Temporarily removed the /help command until I figure out how the hell it’s supposed to work
 
 # @lightbulb_client.register
@@ -1083,4 +1387,5 @@ class patterns(
 #         await ctx.respond(output, ephemeral = True)
 
 
+lightbulb_client.register(message_cmd_group)
 bot.run()
