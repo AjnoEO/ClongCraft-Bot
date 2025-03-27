@@ -11,6 +11,8 @@ class JSONifyable:
 	
     def jsonify(self): return {"__type": self.__class__.__name__, "args": self.args}
 
+class UserError(Exception): ...
+
 BASE_FONT = ImageFont.truetype(font="font_noto/NotoSans.ttf")
 
 def urlize(string):

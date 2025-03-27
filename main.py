@@ -96,9 +96,9 @@ def number_of_columns_for(number_of_banners):
 
 def get_working_set(user_id: int, set: str, update_last_used: bool = True) -> tuple[BannerSet, str]:
     banner_set_name = set or last_used.get(user_id)
-    assert banner_set_name, "You must have a banner set"
+    if not banner_set_name: raise UserError("You must have a banner set")
     banner_sets.setdefault(user_id, {})
-    assert banner_set_name in banner_sets[user_id], f"Banner set {banner_set_name} does not exist"
+    if banner_set_name not in banner_sets[user_id]: raise UserError(f"Banner set {banner_set_name} does not exist")
     if update_last_used:
         last_used[user_id] = banner_set_name
     return banner_sets[user_id][banner_set_name], banner_set_name
@@ -154,7 +154,7 @@ async def handler(exc: lightbulb.exceptions.ExecutionPipelineFailedException) ->
         error_cause = exc.invocation_failure
     else:
         error_cause = exc.hook_failures[0]
-    if isinstance(error_cause, AssertionError):
+    if isinstance(error_cause, UserError):
         error_message = str(error_cause)
         handled = True
     else:
@@ -285,7 +285,7 @@ class save(
     @lightbulb.invoke
     async def save(self, ctx: lightbulb.Context) -> None:
         banner_set, banner_set_name = get_working_set(ctx.user.id, self.set)
-        assert ctx.user.id in banner_designs, "You must have a banner design"
+        if ctx.user.id not in banner_designs: raise UserError("You must have a banner design")
         banner_set.banners[self.name] = banner_designs[ctx.user.id].copy()
         save_banner_data()
         await ctx.respond(
@@ -331,26 +331,14 @@ class set_create(
 
     @lightbulb.invoke
     async def set_create(self, ctx: lightbulb.Context) -> None:
-        assert not (
-            set(self.name) & set(" ,./|_")
-        ), f"Invalid set name: {self.name}"
-        assert self.name not in banner_sets.get(
-            ctx.user.id, {}
-        ), f"You already have a set named {self.name}"
-        assert (
-            len(self.space_char) == 1
-        ), f"Space character must be one character, not {len(self.space_char)}"
-        assert (
-            len(self.newline_char) == 1
-        ), f"Newline character must be one character, not {len(self.newline_char)}"
-        assert (
-            self.space_char != self.newline_char
-        ), "Space character and newline character must be distinct"
+        if set(self.name) & set(" ,./|_"): raise UserError(f"Invalid set name: {self.name}")
+        if self.name in banner_sets.get(ctx.user.id, {}): raise(f"You already have a set named {self.name}")
+        if len(self.space_char) != 1: raise UserError(f"Space character must be one character, not {len(self.space_char)}")
+        if len(self.newline_char) != 1: raise UserError(f"Newline character must be one character, not {len(self.newline_char)}")
+        if self.space_char == self.newline_char: raise UserError("Space character and newline character must be distinct")
         writing_direction = getattr(Direction, self.writing_direction.title())
         newline_direction = getattr(Direction, self.newline_direction.title())
-        assert (
-            writing_direction.value % 2 != newline_direction.value % 2
-        ), "Writing direction and newline direction must be perpendicular"
+        if writing_direction.value % 2 == newline_direction.value % 2: raise UserError("Writing direction and newline direction must be perpendicular")
         split_mode = [s for s in SplitMode if s.value == self.split_mode][0]
         banner_set = BannerSet(
             writing_direction,
@@ -398,11 +386,11 @@ class say(
     @lightbulb.invoke
     async def say(self, ctx: lightbulb.Context) -> None:
         scale = self.scale
-        assert scale > 0, "Scale must be positive"
+        if scale <= 0: raise UserError("Scale must be positive")
         margin = self.margin or 4 * scale
-        assert margin >= 0, "Margin must be nonnegative"
+        if margin < 0: raise UserError("Margin must be nonnegative")
         spacing = self.spacing or 4 * scale
-        assert spacing >= 0, "Spacing must be nonnegative"
+        if spacing < 0: raise UserError("Spacing must be nonnegative")
         banner_set, banner_set_name = get_working_set(ctx.user.id, self.set)
         lines = self.message.split(banner_set.newline_char)
         words: list[list[str]] = [line.split(banner_set.space_char) for line in lines]
@@ -411,9 +399,8 @@ class say(
             # elif word == banner_set.newline_char:
             #     banners.append([])
             # else:
-            #     assert (
-            #         word in banner_set.banners
-            #     ), f"Banner set {banner_set_name} does not have a banner for {word}"
+            #     if word not in banner_set.banners:
+            #         raise UserError(f"Banner set {banner_set_name} does not have a banner for {word}")
             #     banners[-1].append(banner_set.banners[word])
         split_mode = banner_set.split_mode
         split_func = split_mode.split
@@ -426,10 +413,12 @@ class say(
                 subwords = word.split()
                 for subword in subwords:
                     split = split_func(subword, names)
-                    assert split is not None, \
-                        (f"Banner set {banner_set_name} doesn’t have a banner for “{subword}”"
-                        if split_mode == SplitMode.No else
-                        f"Could not split “{subword}” into {banner_set_name} banners")
+                    if split is None:
+                        raise UserError(
+                            f"Banner set {banner_set_name} doesn’t have a banner for “{subword}”"
+                            if split_mode == SplitMode.No else
+                            f"Could not split “{subword}” into {banner_set_name} banners"
+                        )
                     banners[-1] += [banner_set.banners[b] for b in split]
         output = [
             [
@@ -553,25 +542,15 @@ class set_edit(
             if self.split_mode
             else banner_set.split_mode
         )
-        assert (
-            banner_set_name in banner_sets[ctx.user.id]
-        ), f"Banner set {banner_set_name} does not exist"
-        assert (
-            new_name == banner_set_name or new_name not in banner_sets[ctx.user.id]
-        ), f"Banner set {new_name} already exists"
-        assert not (set(new_name) & set(" ,./|_")), f"Invalid set name: {new_name}"
-        assert (
-            len(space_char) == 1
-        ), f"Space character must be one character, not {len(space_char)}"
-        assert (
-            len(newline_char) == 1
-        ), f"Newline character must be one character, not {len(newline_char)}"
-        assert (
-            space_char != newline_char
-        ), "Space character and newline character must be distinct"
-        assert (
-            writing_direction.value % 2 != newline_direction.value % 2
-        ), "Writing direction and newline direction must be perpendicular"
+        if banner_set_name not in banner_sets[ctx.user.id]: raise UserError(f"Banner set {banner_set_name} does not exist")
+        if new_name != banner_set_name and new_name in banner_sets[ctx.user.id]:
+            raise UserError(f"Banner set {new_name} already exists")
+        if set(new_name) & set(" ,./|_"): raise UserError(f"Invalid set name: {new_name}")
+        if len(space_char) != 1: raise UserError(f"Space character must be one character, not {len(space_char)}")
+        if len(newline_char) != 1: raise UserError(f"Newline character must be one character, not {len(newline_char)}")
+        if space_char == newline_char: raise UserError("Space character and newline character must be distinct")
+        if writing_direction.value % 2 == newline_direction.value % 2:
+            raise UserError("Writing direction and newline direction must be perpendicular")
         last_used[ctx.user.id] = new_name
         new_banner_set = BannerSet(
             writing_direction, newline_direction, space_char, newline_char, split_mode
@@ -623,9 +602,7 @@ class delete(
     @lightbulb.invoke
     async def delete(self, ctx: lightbulb.Context) -> None:
         banner_set, banner_set_name = get_working_set(ctx.user.id, self.set)
-        assert (
-            self.name in banner_set.banners
-        ), f"Banner {self.name} does not exist"
+        if self.name not in banner_set.banners: raise UserError(f"Banner {self.name} does not exist")
         banner_set.banners.pop(self.name)
         save_banner_data()
         await ctx.respond(
@@ -649,12 +626,8 @@ class rename(
     @lightbulb.invoke
     async def rename(self, ctx: lightbulb.Context) -> None:
         banner_set, banner_set_name = get_working_set(ctx.user.id, self.set)
-        assert (
-            self.name in banner_set.banners
-        ), f"Banner {self.name} does not exist"
-        assert (
-            self.new_name not in banner_set.banners
-        ), f"Banner {self.new_name} already exists"
+        if self.name not in banner_set.banners: raise UserError(f"Banner {self.name} does not exist")
+        if self.new_name in banner_set.banners: raise UserError(f"Banner {self.new_name} already exists")
         banner_set.banners[self.new_name] = banner_set.banners.pop(
             self.name
         )
@@ -677,12 +650,8 @@ class set_rename(
     @lightbulb.invoke
     async def set_rename(self, ctx: lightbulb.Context) -> None:
         banner_sets.setdefault(ctx.user.id, {})
-        assert (
-            self.name in banner_sets[ctx.user.id]
-        ), f"Banner set {self.name} does not exist"
-        assert (
-            self.new_name not in banner_sets[ctx.user.id]
-        ), f"Banner set {self.new_name} already exists"
+        if self.name not in banner_sets[ctx.user.id]: raise UserError(f"Banner set {self.name} does not exist")
+        if self.new_name in banner_sets[ctx.user.id]: raise UserError(f"Banner set {self.new_name} already exists")
         banner_sets[ctx.user.id][self.new_name] = banner_sets[
             ctx.user.id
         ].pop(self.name)
@@ -793,7 +762,7 @@ class load(
     async def load(self, ctx: lightbulb.Context) -> None:
         banner_set, _ = get_working_set(ctx.user.id, self.set)
         banner = banner_set.banners.get(self.name)
-        assert banner, f"Banner {self.name} does not exist"
+        if not banner: raise UserError(f"Banner {self.name} does not exist")
         banner_designs[ctx.user.id] = banner.copy()
         save_banner_data()
         await respond_with_banner(ctx, banner)
@@ -861,9 +830,7 @@ class add(
             if index is None:
                 layers.append(new_layer)
             else:
-                assert (
-                    1 <= index <= len(layers)
-                ), f"Cannot insert before layer {self.layer}"
+                if not (1 <= index <= len(layers)): raise UserError(f"Cannot insert before layer {self.layer}")
                 layers.insert(index - 1, new_layer)
             save_banner_data()
             await respond_with_banner(ctx, banner_designs[ctx.user.id])
@@ -895,9 +862,7 @@ class remove(
             if index is None:
                 layers.pop()
             else:
-                assert (
-                    1 <= index <= len(layers)
-                ), f"Cannot remove layer {self.layer}"
+                if not (1 <= index <= len(layers)): raise UserError(f"Cannot remove layer {self.layer}")
                 layers.pop(index - 1)
             save_banner_data()
             await respond_with_banner(ctx, banner_designs[ctx.user.id])
@@ -958,12 +923,10 @@ class edit(
             index = layer_to_index(ctx, self.edit_layer)
             layers = banner_designs[ctx.user.id].all_layers
             if index is None:
-                assert (
-                    not self.pattern
-                ), "Cannot set the pattern of the base layer"
+                if self.pattern: raise UserError("Cannot set the pattern of the base layer")
                 index = 0
             else:
-                assert 1 <= index < len(layers), f"Cannot edit layer {index}"
+                if not (1 <= index < len(layers)): raise UserError(f"Cannot edit layer {index}")
             if self.color:
                 for color in Color:
                     if color.pretty_name == self.color:
@@ -1146,7 +1109,7 @@ class message_create(
     @lightbulb.invoke
     async def message_create(self, ctx: lightbulb.Context) -> None:
         if self.name in messages:
-            raise UserWarning(f"There is already a message with name `{self.name}`: {messages[self.name].url(GUILD_ID)}")
+            raise UserError(f"There is already a message with name `{self.name}`: {messages[self.name].url(GUILD_ID)}")
         if not self.text:
             message_creation_processes[ctx.user.id] = (self.channel, self.name)
             modal = CreateModal(title=f"Create Admin Message: {self.name}")
