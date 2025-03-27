@@ -164,10 +164,11 @@ async def handler(exc: lightbulb.exceptions.ExecutionPipelineFailedException) ->
         line_number = traceback.tb_lineno
         error_message = f"{error_cause.__class__.__name__} " \
                         f"({filename}, line {line_number}): {error_cause}"
+    if "`" not in error_message: error_message = f"`{error_message}`"
     embed = hikari.Embed(
         title = "Error!",
         description = f"An error occurred while attempting to use `/{exc.context.command_data.name}`.\n"
-                      f"Error message: `{error_message}`"
+                      f"Error message: {error_message}"
     )
     await exc.context.respond(embed, ephemeral=True)
     return handled
