@@ -1126,8 +1126,8 @@ async def edit_message(name: str, text: str, user_id: int):
     msg = messages[name]
     msg.text = text
     msg.last_editor = user_id
-    message = await bot.rest.edit_message(msg.channel_id, msg.id, msg.text.with_values(**variables))
     save_message_data()
+    await bot.rest.edit_message(msg.channel_id, msg.id, msg.text.with_values(**variables))
     return f"Edited message `{msg.name}` {msg.url(GUILD_ID)}"
 
 message_editing_processes: dict[int, str] = {}
