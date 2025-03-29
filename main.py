@@ -1126,6 +1126,9 @@ async def edit_message(name: str, text: str, user_id: int):
     msg = messages[name]
     msg.text = text
     msg.last_editor = user_id
+    for var_name in msg.text.variables:
+        if var_name not in variables:
+            variables[var_name] = Variable(var_name)
     save_message_data()
     await bot.rest.edit_message(msg.channel_id, msg.id, msg.text.with_values(**variables))
     return f"Edited message `{msg.name}` {msg.url(GUILD_ID)}"
