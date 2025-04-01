@@ -1098,7 +1098,13 @@ class message_create(
     description="Create an admin message"
 ):
     channel = lightbulb.channel(
-        "channel", "The channel to send the message to", channel_types=[hikari.ChannelType.GUILD_TEXT]
+        "channel", "The channel to send the message to", channel_types=[
+            hikari.ChannelType.GUILD_TEXT,
+            hikari.ChannelType.GUILD_PRIVATE_THREAD,
+            hikari.ChannelType.GUILD_PUBLIC_THREAD,
+            hikari.ChannelType.GUILD_NEWS_THREAD,
+            hikari.ChannelType.GUILD_NEWS
+        ]
     )
     name = lightbulb.string(
         "name", "The name of the message to refer to later when editing it"
