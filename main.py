@@ -1195,6 +1195,7 @@ class message_unlink(
     @lightbulb.invoke
     async def message_unlink(self, ctx: lightbulb.Context) -> None:
         msg =  messages.pop(self.name)
+        save_message_data()
         await ctx.respond(f"Unlinked message `{msg.name}` {msg.url(GUILD_ID)}", ephemeral=True)
 
 
