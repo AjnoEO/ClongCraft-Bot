@@ -1177,6 +1177,22 @@ class message_edit(
     
 
 @message_cmd_group.register
+class message_unlink(
+    lightbulb.SlashCommand,
+    name="unlink",
+    description="Unlink an admin message without deleting it"
+):
+    name = lightbulb.string(
+        "name", "The name of the message to unlink", autocomplete=message_name_autocomplete
+    )
+
+    @lightbulb.invoke
+    async def message_unlink(self, ctx: lightbulb.Context) -> None:
+        msg =  messages.pop(self.name)
+        await ctx.respond(f"Unlinked message `{msg.name}` {msg.url(GUILD_ID)}", ephemeral=True)
+
+
+@message_cmd_group.register
 class message_delete(
     lightbulb.SlashCommand,
     name="delete",
@@ -1187,7 +1203,7 @@ class message_delete(
     )
 
     @lightbulb.invoke
-    async def message_edit(self, ctx: lightbulb.Context) -> None:
+    async def message_delete(self, ctx: lightbulb.Context) -> None:
         msg = messages[self.name]
         await bot.rest.delete_message(msg.channel_id, msg.id, reason=f"Deleted by admin <@{ctx.user.id}>")
         del messages[self.name]
