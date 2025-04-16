@@ -1219,7 +1219,7 @@ class message_delete(
         await ctx.respond(f"Deleted message `{msg.name}`", ephemeral=True)
 
 
-MESSAGES_PER_LIST_PAGE = 10
+MESSAGES_PER_LIST_PAGE = 15
 
 
 def list_messages(page: int) -> tuple[str, int]:
