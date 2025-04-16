@@ -389,7 +389,8 @@ def optimize_banners_for_anvil(lines: List[List[Banner | None]], direction: Dire
 # Limitation: This can currently only handle LTR or RTL writing directions. This is because
 #     ... Electra didn’t finish their thought. The reason will forever remain unknown to us
 def writing_description(lines, direction: Direction, newline_dir: Direction) -> str:
-    url = urlize(generate_bannerwriter_url(lines, direction, newline_dir))
+    bannerwriter_url = generate_bannerwriter_url(lines, direction, newline_dir)
+    url = urlize(bannerwriter_url)
     (anvil, length) = optimize_banners_for_anvil(lines, direction)
     return \
 f"""
@@ -401,5 +402,21 @@ f"""
 Anvil-optimized text ({length}/50 characters):
 ```
 {anvil}
-```URL: {url}
-"""
+```
+URL: {url}
+""" if length + len(url) <= 1850 else \
+f"""
+Anvil-optimized text ({length}/50 characters):
+```
+{anvil}
+```
+URL: [banner-writer.web.app/?writing=...](<https://{bannerwriter_url}>)
+""" if length + len(bannerwriter_url) <= 1850 else \
+f"""
+Anvil-optimized text ({length}/50 characters):
+```
+{anvil}
+```
+(The banner URL is too long to be displayed)
+""" if length <= 1850 else \
+"The anvil-optimized text is too long to be displayed"
