@@ -2,6 +2,7 @@ from json import JSONDecoder
 from configparser import ConfigParser
 from banner import *
 from message import *
+from paginator import *
 from utils import *
 from typing import Dict, List, Optional
 from PIL import Image, ImageDraw
@@ -1218,25 +1219,44 @@ class message_delete(
         await ctx.respond(f"Deleted message `{msg.name}`", ephemeral=True)
 
 
+MESSAGES_PER_LIST_PAGE = 10
+
+
+def list_messages(page: int) -> tuple[str, int]:
+    if not messages:
+        return "There are no admin messages right now", 1
+    count = len(messages)
+    max_page = (count - 1) // MESSAGES_PER_LIST_PAGE + 1
+    if page > max_page: raise UserError(f"Cannot display page {page}. The last page is {max_page}")
+    response = "There is 1 admin message:" if len(messages) == 1 else f"There are {count} admin messages:"
+    for msg in list(messages.values())[ (page-1)*MESSAGES_PER_LIST_PAGE : page*MESSAGES_PER_LIST_PAGE ]:
+        response += f"\n- `{msg.name}` {msg.url(GUILD_ID)}"
+    if max_page > 1: response += f"\n(page {page}/{max_page})"
+    return response, max_page
+
+
 @message_cmd_group.register
 class message_list(
     lightbulb.SlashCommand,
     name="list",
     description="List the admin messages"
 ):
+    page = lightbulb.integer(
+        "page", "The page to display", default=1
+    )
     for_everyone = lightbulb.boolean(
         "for_everyone", "Set to true to send to everyone", default=False
     )
 
     @lightbulb.invoke
     async def message_list(self, ctx: lightbulb.Context) -> None:
-        if not messages:
-            await ctx.respond("There are no admin messages right now", ephemeral = not self.for_everyone)
+        response, max_page = list_messages(self.page)
+        if max_page == 1:
+            await ctx.respond(response, ephemeral = not self.for_everyone)
             return
-        response = "There is 1 admin message:" if len(messages) == 1 else f"There are {len(messages)} admin messages:"
-        for msg in messages.values():
-            response += f"\n- `{msg.name}` {msg.url(GUILD_ID)}"
-        await ctx.respond(response, ephemeral = not self.for_everyone)
+        view = PaginatorView(self.page, max_page, list_messages)
+        await ctx.respond(response, components=view, ephemeral = not self.for_everyone)
+        miru_client.start_view(view)
 
 
 @message_cmd_group.register
