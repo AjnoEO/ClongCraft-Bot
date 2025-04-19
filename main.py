@@ -393,6 +393,7 @@ class say(
         if margin < 0: raise UserError("Margin must be nonnegative")
         spacing = self.spacing or 4 * scale
         if spacing < 0: raise UserError("Spacing must be nonnegative")
+        await ctx.defer(ephemeral=True)
         banner_set, banner_set_name = get_working_set(ctx.user.id, self.set)
         lines = self.message.split(banner_set.newline_char)
         words: list[list[str]] = [line.split(banner_set.space_char) for line in lines]
@@ -821,12 +822,12 @@ class add(
                 if pattern.pretty_name == self.pattern:
                     break
             else:
-                raise ValueError(f"Invalid pattern: {self.pattern}")
+                raise UserError(f"Invalid pattern: {self.pattern}")
             for color in Color:
                 if color.pretty_name == self.color:
                     break
             else:
-                raise ValueError("Impossible")
+                raise UserError(f"Invalid color: {self.color}") # Should be impossible
             new_layer = Layer(color, pattern)
             layers = banner_designs[ctx.user.id].layers
             if index is None:
