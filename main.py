@@ -184,7 +184,7 @@ async def delete_if_necessary(message: hikari.Message):
     if not message.content:
         return
     text = message.content
-    text = re.sub(r"<[@#]\d+?>", "", text)
+    text = re.sub(r"<(@|#|@&)\d+?>", "", text)
     text = re.sub(r"https?://[A-Za-z0-9-]+\.[A-Za-z0-9.-]+(/\S+)?", "", text)
     if re.match(r"\s*$", text):
         return
