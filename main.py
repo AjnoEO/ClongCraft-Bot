@@ -1081,7 +1081,7 @@ message_creation_processes: dict[int, tuple[hikari.TextableChannel, str]] = {}
 
 class CreateModal(miru.Modal, title="Create Admin Message"):
     text = miru.TextInput(
-        label="Text",
+        label="Message text",
         style=hikari.TextInputStyle.PARAGRAPH,
         placeholder="Use {{variable_name}} to declare variables",
         required=True
@@ -1111,22 +1111,16 @@ class message_create(
     name = lightbulb.string(
         "name", "The name of the message to refer to later when editing it"
     )
-    text = lightbulb.string(
-        "message", "The message. Use `{{variable_name}}` to declare variables", default=None
-    )
 
     @lightbulb.invoke
     async def message_create(self, ctx: lightbulb.Context) -> None:
         if self.name in messages:
             raise UserError(f"There is already a message with name `{self.name}`: {messages[self.name].url(GUILD_ID)}")
-        if not self.text:
-            message_creation_processes[ctx.user.id] = (self.channel, self.name)
-            modal = CreateModal(title=f"Create Admin Message: {self.name}")
-            builder = modal.build_response(miru_client)
-            await builder.create_modal_response(ctx.interaction)
-            miru_client.start_modal(modal)
-            return
-        await ctx.respond(await create_message(self.channel, self.name, self.text, ctx.user.id), ephemeral=True)
+        message_creation_processes[ctx.user.id] = (self.channel, self.name)
+        modal = CreateModal(title=f"Create Admin Message: {self.name}")
+        builder = modal.build_response(miru_client)
+        await builder.create_modal_response(ctx.interaction)
+        miru_client.start_modal(modal)
         return
 
 
@@ -1145,7 +1139,7 @@ message_editing_processes: dict[int, str] = {}
 
 class EditModal(miru.Modal, title="Edit Admin Message"):
     text = miru.TextInput(
-        label="Text",
+        label="Message text. Use {{variable_name}} to declare variables",
         style=hikari.TextInputStyle.PARAGRAPH,
         placeholder="Use {{variable_name}} to declare variables",
         required=True
@@ -1166,21 +1160,15 @@ class message_edit(
     name = lightbulb.string(
         "name", "The name of the message to edit", autocomplete=message_name_autocomplete
     )
-    text = lightbulb.string(
-        "text", "The new text of the message", default=None
-    )
 
     @lightbulb.invoke
     async def message_edit(self, ctx: lightbulb.Context) -> None:
-        if not self.text:
-            message_editing_processes[ctx.user.id] = self.name
-            modal = EditModal(title=f"Edit Admin Message: {self.name}")
-            modal.text.value = messages[self.name].text.raw
-            builder = modal.build_response(miru_client)
-            await builder.create_modal_response(ctx.interaction)
-            miru_client.start_modal(modal)
-            return
-        await ctx.respond(await edit_message(self.name, self.text, ctx.user.id), ephemeral=True)
+        message_editing_processes[ctx.user.id] = self.name
+        modal = EditModal(title=f"Edit Admin Message: {self.name}")
+        modal.text.value = messages[self.name].text.raw
+        builder = modal.build_response(miru_client)
+        await builder.create_modal_response(ctx.interaction)
+        miru_client.start_modal(modal)
         return
     
 
