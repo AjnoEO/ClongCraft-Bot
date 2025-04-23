@@ -1139,7 +1139,7 @@ message_editing_processes: dict[int, str] = {}
 
 class EditModal(miru.Modal, title="Edit Admin Message"):
     text = miru.TextInput(
-        label="Message text. Use {{variable_name}} to declare variables",
+        label="Message text. {{variable_name}} for variables",
         style=hikari.TextInputStyle.PARAGRAPH,
         placeholder="Use {{variable_name}} to declare variables",
         required=True
