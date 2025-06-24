@@ -145,31 +145,44 @@ else:
                             "make sure to copy example.meta.json, "
                             "name it meta.json and edit for your needs.")
 
+CHARACTER_LIMIT = 2000
 DIRECTION_CHOICES = choicify(["up", "down", "left", "right"])
+RED = "#ee2d2d"
+
+def handle_error(err: Exception) -> tuple[str, bool]:
+    """
+    :param Exception err: The raised exception
+
+    :return: `error_message`, `handled`
+    :rtype: tuple[str, bool]
+    """
+    handled = False
+    if isinstance(err, UserError):
+        error_message = str(err)
+        handled = True
+    else:
+        traceback = err.__traceback__
+        while traceback.tb_next: traceback = traceback.tb_next
+        filename = os.path.split(traceback.tb_frame.f_code.co_filename)[1]
+        line_number = traceback.tb_lineno
+        error_message = f"{err.__class__.__name__} " \
+                        f"({filename}, line {line_number}): {err}"
+    if "`" not in error_message: error_message = f"`{error_message}`"
+    return error_message, handled
 
 @lightbulb_client.error_handler
 async def handler(exc: lightbulb.exceptions.ExecutionPipelineFailedException) -> bool:
     """Error handler"""
-    handled = False
     if exc.pipeline.invocation_failed:
         error_cause = exc.invocation_failure
     else:
         error_cause = exc.hook_failures[0]
-    if isinstance(error_cause, UserError):
-        error_message = str(error_cause)
-        handled = True
-    else:
-        traceback = error_cause.__traceback__
-        while traceback.tb_next: traceback = traceback.tb_next
-        filename = os.path.split(traceback.tb_frame.f_code.co_filename)[1]
-        line_number = traceback.tb_lineno
-        error_message = f"{error_cause.__class__.__name__} " \
-                        f"({filename}, line {line_number}): {error_cause}"
-    if "`" not in error_message: error_message = f"`{error_message}`"
+    error_message, handled = handle_error(error_cause)
     embed = hikari.Embed(
         title = "Error!",
         description = f"An error occurred while attempting to use `/{exc.context.command_data.name}`.\n"
-                      f"Error message: {error_message}"
+                      f"Error message: {error_message}",
+        color = RED
     )
     await exc.context.respond(embed, ephemeral=True)
     return handled
@@ -1066,6 +1079,8 @@ async def message_name_autocomplete(ctx: lightbulb.AutocompleteContext[str]) -> 
 
 
 async def create_message(channel: hikari.TextableChannel, name: str, text: str, user_id: int):
+    if len(text) > CHARACTER_LIMIT:
+        raise UserError(f"The message length cannot exceed {CHARACTER_LIMIT} characters")
     msg = Message(name, text, channel.id, og_author=user_id)
     for var in msg.text.variables:
         if var not in variables:
@@ -1092,6 +1107,19 @@ class CreateModal(miru.Modal, title="Create Admin Message"):
             await create_message(*message_creation_processes.pop(ctx.user.id), self.text.value, ctx.user.id),
             flags=hikari.MessageFlag.EPHEMERAL
         )
+
+    async def on_error(self, error: Exception, ctx: miru.ViewContext) -> None:
+        error_message, handled = handle_error(error)
+        embed = hikari.Embed(
+            title = "Error!",
+            description = f"An error occurred while creating admin message.\n"
+                          f"Error message: {error_message}",
+            color = RED
+        )
+        if ctx is not None:
+            await ctx.respond(embed, ephemeral=True)
+        else: raise error
+        if not handled: raise error
 
 @message_cmd_group.register
 class message_create(
@@ -1125,6 +1153,8 @@ class message_create(
 
 
 async def edit_message(name: str, text: str, user_id: int):
+    if len(text) > CHARACTER_LIMIT:
+        raise UserError(f"The message length cannot exceed {CHARACTER_LIMIT} characters")
     msg = messages[name]
     msg.text = text
     msg.last_editor = user_id
@@ -1150,6 +1180,19 @@ class EditModal(miru.Modal, title="Edit Admin Message"):
             await edit_message(message_editing_processes.pop(ctx.user.id), self.text.value, ctx.user.id),
             flags=hikari.MessageFlag.EPHEMERAL
         )
+
+    async def on_error(self, error: Exception, ctx: miru.ViewContext) -> None:
+        error_message, handled = handle_error(error)
+        embed = hikari.Embed(
+            title = "Error!",
+            description = f"An error occurred while editing admin message.\n"
+                          f"Error message: {error_message}",
+            color = RED
+        )
+        if ctx is not None:
+            await ctx.respond(embed, flags=hikari.MessageFlag.EPHEMERAL)
+        else: raise error
+        if not handled: raise error
 
 @message_cmd_group.register
 class message_edit(
