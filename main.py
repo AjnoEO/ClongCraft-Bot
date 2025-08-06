@@ -126,6 +126,7 @@ lightbulb_client.di.registry_for(
 
 @bot.listen(hikari.StartingEvent)
 async def on_starting(_: hikari.StartingEvent) -> None:
+
     await lightbulb_client.start()
     for name, msg in messages.items():
         try: await bot.rest.fetch_message(msg.channel_id, msg.id)
@@ -1430,6 +1431,56 @@ class variable_list(
 #             for param in help_data[self.command]["params"]:
 #                 output += f"\n- {param}"
 #         await ctx.respond(output, ephemeral = True)
+
+import requests
+from datetime import datetime, timezone
+@lightbulb_client.task(lightbulb.uniformtrigger(seconds=60))
+async def print_hi(bot: hikari.GatewayBot) -> None:
+    print("hi")
+    address = "clongcraft.apexmc.co"
+    resp = requests.get(f"https://api.mcsrvstat.us/3/{address}").json()
+
+    # Check current time against server restart time
+    # This is because the server may restart fast enough for the 1-minute interval to miss it,
+    # thus resulting in an inaccurate Uptime stat
+
+    # Server restarts at 05:50 UTC
+    restart_hour = 5
+    restart_minute = 50
+
+    current = datetime.now(timezone.utc)
+    currently_restarting = current.hour == restart_hour and (current.minute == restart_minute or current.minute == restart_minute + 1)
+
+    # Update status variables
+
+    online = "players" in resp
+    online_readable = "online" if online else "offline"
+    player_count = resp["players"]["online"] if online else 0
+    player_count_pluralizer = "" if player_count==1 else "s"
+    uptime = int(variables["status_uptime"].value) + 1 if online and "status_uptime" in variables and not currently_restarting else 0
+    uptime_minutes = uptime % 60
+    uptime_hours = uptime // 60
+    player_list = "\n".join(p["name"] for p in resp["players"]["list"]) if player_count > 0 else "None"
+
+    vars_to_update = {"status_online": online, "status_online_readable": online_readable,
+                      "status_player_count": player_count, "status_player_count_pluralizer": player_count_pluralizer,
+                      "status_uptime": uptime, "status_uptime_minutes": uptime_minutes, "status_uptime_hours": uptime_hours,
+                      "status_player_list": player_list}
+    for key in vars_to_update:
+        if key in variables:
+            var = variables[key]
+            var.value = str(vars_to_update[key])
+            for msg_name in var_to_msg[var.name]:
+                msg = messages[msg_name]
+                await bot.rest.edit_message(msg.channel_id, msg.id, msg.text.with_values(**variables))
+    save_message_data()
+
+    print(f"status {online_readable} {player_count}")
+    if "status" in messages:
+        print("status")
+        msg = messages["status"]
+        status_channel_name = f"🟢{player_count}-player{player_count_pluralizer}-online" if online else "🔴offline"
+        await bot.rest.edit_channel(msg.channel_id,name=status_channel_name)
 
 
 lightbulb_client.register(message_cmd_group)
