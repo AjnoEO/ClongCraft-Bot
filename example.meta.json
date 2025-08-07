@@ -6,5 +6,7 @@
 		0,
 		1,
 		2
-	]
+	],
+	"Server restart hour": 5,
+	"Server restart minute": 50
 }
