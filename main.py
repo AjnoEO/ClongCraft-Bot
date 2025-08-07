@@ -55,7 +55,7 @@ def update_var_to_msg():
         for var_name in msg.text.variables:
             var_to_msg.setdefault(var_name, [])
             var_to_msg[var_name].append(msg_name)
-    for var_name in variables:
+    for var_name in list(variables.keys()):
         if not var_name in var_to_msg:
             del variables[var_name]
 
@@ -1106,6 +1106,7 @@ class CreateModal(miru.Modal, title="Create Admin Message"):
     )
 
     async def callback(self, ctx: miru.ModalContext) -> None:
+        await ctx.defer()
         await ctx.respond(
             await create_message(*message_creation_processes.pop(ctx.user.id), self.text.value, ctx.user.id),
             flags=hikari.MessageFlag.EPHEMERAL
@@ -1179,6 +1180,7 @@ class EditModal(miru.Modal, title="Edit Admin Message"):
     )
 
     async def callback(self, ctx: miru.ModalContext) -> None:
+        await ctx.defer()
         await ctx.respond(
             await edit_message(message_editing_processes.pop(ctx.user.id), self.text.value, ctx.user.id),
             flags=hikari.MessageFlag.EPHEMERAL
