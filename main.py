@@ -1483,7 +1483,7 @@ async def update_server_status(bot: hikari.GatewayBot) -> None:
     # Update status channel
     if "status" in messages:
         msg = messages["status"]
-        status_channel_name = f"🟢{player_count}-player{player_count_pluralizer}-online" if online else "🔴offline"
+        status_channel_name = f"🟢-{player_count}-player{player_count_pluralizer}-online" if online else "🔴-server-offline"
         await bot.rest.edit_channel(msg.channel_id,name=status_channel_name)
 
 lightbulb_client.register(message_cmd_group)
