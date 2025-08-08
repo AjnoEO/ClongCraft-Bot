@@ -1437,6 +1437,7 @@ class variable_list(
 #         await ctx.respond(output, ephemeral = True)
 
 UPDATE_TIME_MINS = 1
+uptime = 0
 
 import requests
 from datetime import datetime, timezone
@@ -1464,14 +1465,15 @@ async def update_server_status(bot: hikari.GatewayBot) -> None:
     online_readable = "online" if online else "offline"
     player_count = resp["players"]["online"] if online else 0
     player_count_pluralizer = "" if player_count==1 else "s"
-    uptime = int(variables["status_uptime"].value) + UPDATE_TIME_MINS if online and "status_uptime" in variables and not currently_restarting else 0
+    global uptime
+    uptime = uptime + UPDATE_TIME_MINS if online and not currently_restarting else 0
     uptime_minutes = uptime % 60
     uptime_hours = uptime // 60
     player_list = "\n".join(p["name"] for p in resp["players"]["list"]) if player_count > 0 else "None"
     # Update status variables
     vars_to_update = {"status_online": online, "status_online_readable": online_readable,
                       "status_player_count": player_count, "status_player_count_pluralizer": player_count_pluralizer,
-                      "status_uptime": uptime, "status_uptime_minutes": uptime_minutes, "status_uptime_hours": uptime_hours,
+                      "status_uptime_minutes": uptime_minutes, "status_uptime_hours": uptime_hours,
                       "status_player_list": player_list}
     messages_to_update = set()
     for key in vars_to_update:
