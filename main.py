@@ -1434,9 +1434,11 @@ class variable_list(
 #                 output += f"\n- {param}"
 #         await ctx.respond(output, ephemeral = True)
 
+UPDATE_TIME_MINS = 1
+
 import requests
 from datetime import datetime, timezone
-@lightbulb_client.task(lightbulb.uniformtrigger(seconds=60))
+@lightbulb_client.task(lightbulb.uniformtrigger(seconds=UPDATE_TIME_MINS*60), True, -1, -1)
 async def update_server_status(bot: hikari.GatewayBot) -> None:
     # Get server ip
     if not "ip" in variables:
@@ -1460,7 +1462,7 @@ async def update_server_status(bot: hikari.GatewayBot) -> None:
     online_readable = "online" if online else "offline"
     player_count = resp["players"]["online"] if online else 0
     player_count_pluralizer = "" if player_count==1 else "s"
-    uptime = int(variables["status_uptime"].value) + 1 if online and "status_uptime" in variables and not currently_restarting else 0
+    uptime = int(variables["status_uptime"].value) + UPDATE_TIME_MINS if online and "status_uptime" in variables and not currently_restarting else 0
     uptime_minutes = uptime % 60
     uptime_hours = uptime // 60
     player_list = "\n".join(p["name"] for p in resp["players"]["list"]) if player_count > 0 else "None"
