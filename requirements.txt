@@ -2,3 +2,4 @@ hikari==2.2.0
 hikari-lightbulb==3.0.0a16
 hikari-miru==4.1.1
 Pillow==10.4.0
+requests==2.32.2
