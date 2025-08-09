@@ -1436,18 +1436,22 @@ class variable_list(
 #                 output += f"\n- {param}"
 #         await ctx.respond(output, ephemeral = True)
 
+from collections import defaultdict
 UPDATE_TIME_MINS = 1
-uptime = 0
+uptime = defaultdict(int)
 
 import requests
 from datetime import datetime, timezone
 @lightbulb_client.task(lightbulb.uniformtrigger(seconds=UPDATE_TIME_MINS*60), True, -1, -1)
 async def update_server_status(bot: hikari.GatewayBot) -> None:
+    for key in variables:
+        if key.startswith("ip"):
+            name = key[2:]
+            await update_server_status(bot, name)
+
+async def update_server_status(bot: hikari.GatewayBot, name: str):
     # Get server ip
-    if not "ip" in variables:
-        # Must configure IP before setting server status
-        return
-    address = variables["ip"].value
+    address = variables[f"ip{name}"].value
     resp = requests.get(f"https://api.mcsrvstat.us/3/{address}").json()
 
     # Check current time against server restart time
@@ -1466,15 +1470,15 @@ async def update_server_status(bot: hikari.GatewayBot) -> None:
     player_count = resp["players"]["online"] if online else 0
     player_count_pluralizer = "" if player_count==1 else "s"
     global uptime
-    uptime = uptime + UPDATE_TIME_MINS if online and not currently_restarting else 0
-    uptime_minutes = uptime % 60
-    uptime_hours = uptime // 60
-    player_list = "\n".join(p["name"] for p in resp["players"]["list"]) if player_count > 0 else "None"
+    uptime[name] = uptime[name] + UPDATE_TIME_MINS if online and not currently_restarting else 0
+    uptime_minutes = uptime[name] % 60
+    uptime_hours = uptime[name] // 60
+    player_list = "\n".join(p["name"] for p in resp["players"]["list"]) if player_count > 0 and "list" in resp["players"] else "None"
     # Update status variables
-    vars_to_update = {"status_online": online, "status_online_readable": online_readable,
-                      "status_player_count": player_count, "status_player_count_pluralizer": player_count_pluralizer,
-                      "status_uptime_minutes": uptime_minutes, "status_uptime_hours": uptime_hours,
-                      "status_player_list": player_list}
+    vars_to_update = {f"status{name}_online": online, f"status{name}_online_readable": online_readable,
+                      f"status{name}_player_count": player_count, f"status{name}_player_count_pluralizer": player_count_pluralizer,
+                      f"status{name}_uptime_minutes": uptime_minutes, f"status{name}_uptime_hours": uptime_hours,
+                      f"status{name}_player_list": player_list}
     messages_to_update = set()
     for key in vars_to_update:
         if key in variables:
@@ -1487,8 +1491,8 @@ async def update_server_status(bot: hikari.GatewayBot) -> None:
         await bot.rest.edit_message(msg.channel_id, msg.id, msg.text.with_values(**variables))
     save_message_data()
     # Update status channel
-    if "status" in messages:
-        msg = messages["status"]
+    if f"status{name}" in messages:
+        msg = messages[f"status{name}"]
         status_channel_name = f"🟢-{player_count}-player{player_count_pluralizer}-online" if online else "🔴-server-offline"
         await bot.rest.edit_channel(msg.channel_id,name=status_channel_name)
 
