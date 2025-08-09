@@ -1441,6 +1441,7 @@ UPDATE_TIME_MINS = 1
 uptime = defaultdict(int)
 
 import requests
+from asyncio import sleep
 from datetime import datetime, timezone
 @lightbulb_client.task(lightbulb.uniformtrigger(seconds=UPDATE_TIME_MINS*60), True, -1, -1)
 async def update_server_status(bot: hikari.GatewayBot) -> None:
@@ -1469,7 +1470,6 @@ async def update_server_status(bot: hikari.GatewayBot, name: str):
     online_readable = "online" if online else "offline"
     player_count = resp["players"]["online"] if online else 0
     player_count_pluralizer = "" if player_count==1 else "s"
-    global uptime
     uptime[name] = uptime[name] + UPDATE_TIME_MINS if online and not currently_restarting else 0
     uptime_minutes = uptime[name] % 60
     uptime_hours = uptime[name] // 60
@@ -1492,6 +1492,7 @@ async def update_server_status(bot: hikari.GatewayBot, name: str):
     save_message_data()
     # Update status channel
     if f"status{name}" in messages:
+        await sleep(1)
         msg = messages[f"status{name}"]
         status_channel_name = f"🟢-{player_count}-player{player_count_pluralizer}-online" if online else "🔴-server-offline"
         await bot.rest.edit_channel(msg.channel_id,name=status_channel_name)
