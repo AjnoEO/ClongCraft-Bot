@@ -198,6 +198,54 @@ class Banner:
         return cls(background.color, layers)
     
     @classmethod
+    def from_bannerwriter_url_multi(cls, bannerwriter_url: str) -> List[List["Banner"]]:
+        assert bannerwriter_url.startswith("https://banner-writer.web.app/image/"), \
+            f"Not a bannerwriter URL: {bannerwriter_url}"
+        assert len(bannerwriter_url) >= 37 and bannerwriter_url[36] == "L" or bannerwriter_url[36] == "R", \
+            f"Bannerwriter URL didn't have a direction control character: {bannerwriter_url[36]}"
+        assert bannerwriter_url.endswith(".png"), \
+            f"Bannerwriter URL didn't end with a .png extension: {bannerwriter_url}"
+        bannerwriter_url = bannerwriter_url[37:-4]
+        current_color = Color.White # Color is changed only when required in this URL type. Default is white.
+        lines: List[List[Banner | None]] = []
+        line: List[Banner | None] = []
+        banner = None
+
+        for char in bannerwriter_url:
+            for color in Color:
+                if color.bannerwriter_url_index == char:
+                    current_color = color
+                    break
+            else:
+                if char == ".":
+                    if banner:
+                        line.append(banner)
+                    banner = Banner(base_color=current_color, layers=[])
+                for pattern in Pattern:
+                    if pattern.bannerwriter_url_index == char:
+                        if not banner:
+                            raise ValueError("Banner had no background")
+                        banner.layers.append(Layer(current_color, pattern))
+                        break
+                else:
+                    if char == "_":
+                        if banner:
+                            line.append(banner)
+                        banner = None
+                    elif char == "~":
+                        if banner:
+                            line.append(banner)
+                        banner = None
+                        lines.append(line)
+                        line = []
+                    else:
+                        raise ValueError(f"Invalid character detected: {char}")
+        if banner:
+            line.append(banner)
+        lines.append(line)
+        return lines
+    
+    @classmethod
     def from_planetminecraft_url(cls, planetminecraft_url: str) -> "Banner":
         assert planetminecraft_url.startswith("https://www.planetminecraft.com/banner/?b="), \
             f"Not a planetminecraft URL: {planetminecraft_url}"
@@ -387,7 +435,7 @@ def optimize_banners_for_anvil(lines: List[List[Banner | None]], direction: Dire
     return (output, length)
 
 # Limitation: This can currently only handle LTR or RTL writing directions. This is because
-#     ... Electra didn’t finish their thought. The reason will forever remain unknown to us
+# item names in Minecraft do not support newlines, and so anvil-optimized text cannot be vertical.
 def writing_description(lines, direction: Direction, newline_dir: Direction) -> str:
     bannerwriter_url = generate_bannerwriter_url(lines, direction, newline_dir)
     url = urlize(bannerwriter_url)
