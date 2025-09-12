@@ -278,6 +278,12 @@ async def process_emoji_vote(message: hikari.Message):
 
 @bot.listen()
 async def on_reaction_add(event: hikari.GuildReactionAddEvent) -> None:
+    msg = await bot.rest.fetch_message(event.channel_id, event.message_id)
+    for react in msg.reactions:
+        if event.is_for_emoji(react.emoji):
+            # Don't do anything if the emoji is not the first one added (the old reactions are not banned)
+            if react.count > 1: return
+            break
     channel: hikari.GuildChannel = await bot.rest.fetch_channel(event.channel_id)
     category_id = channel.parent_id
     is_clong_category = category_id in NO_TEXT_CATEGORIES
