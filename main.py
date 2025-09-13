@@ -277,23 +277,25 @@ async def process_emoji_vote(message: hikari.Message):
 
 @bot.listen()
 async def on_reaction_add(event: hikari.GuildReactionAddEvent) -> None:
-    msg = await bot.rest.fetch_message(event.channel_id, event.message_id)
-    for react in msg.reactions:
-        if event.is_for_emoji(react.emoji):
-            # Don't do anything if the emoji is not the first one added (the old reactions are not banned)
-            if react.count > 1: return
-            break
     channel: hikari.GuildChannel = await bot.rest.fetch_channel(event.channel_id)
     category_id = channel.parent_id
     is_clong_category = category_id in NO_TEXT_CATEGORIES
     is_clong_emoji = event.emoji_name.startswith("clong")
     # Delete emoji if it is not used in the right place
     if is_clong_category != is_clong_emoji:
-        isunicode = isinstance(event.emoji_name, hikari.UnicodeEmoji)
-        if isunicode:
-            await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name)
-        else:
-            await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name, event.emoji_id)
+        msg = await bot.rest.fetch_message(event.channel_id, event.message_id)
+        old_react = False
+        for react in msg.reactions:
+            if event.is_for_emoji(react.emoji):
+                # Don't remove if the emoji is not the first one added (the old reactions are not banned)
+                if react.count > 1: old_react = True
+                break
+        if not old_react:
+            isunicode = isinstance(event.emoji_name, hikari.UnicodeEmoji)
+            if isunicode:
+                await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name)
+            else:
+                await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name, event.emoji_id)
         
     # Handle votes in the emoji vote
     if "emoji_vote" not in messages:
