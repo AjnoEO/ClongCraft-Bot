@@ -142,6 +142,9 @@ if os.path.exists("meta.json"):
         NO_TEXT_CATEGORIES: List[int] = data["No-text categories"]
         SERVER_RESTART_HOUR: int = data["Server restart hour"]
         SERVER_RESTART_MINUTE: int = data["Server restart minute"]
+        MAX_EMOJIS: int = data["Max custom emojis"]
+        EMOJIS_PER_MESSAGE: int = data["Emojis per message"]
+        PROTECTED_EMOJIS: int = data["Emojis protected by vote"]
 else:
     raise FileNotFoundError("meta.json is missing.\n"
                             "If you cloned or pulled the git repo, "
@@ -200,22 +203,134 @@ async def delete_if_necessary(message: hikari.Message):
     if not message.content:
         return
     text = message.content
-    text = re.sub(r"<(@|#|@&)\d+?>", "", text)
-    text = re.sub(r"https?://[A-Za-z0-9-]+\.[A-Za-z0-9.-]+(/\S+)?", "", text)
-    if re.match(r"\s*$", text):
-        return
+
     channel: hikari.GuildChannel = await message.fetch_channel()
     if channel.type not in [hikari.ChannelType.GUILD_TEXT, hikari.ChannelType.GUILD_VOICE]:
         return
     category_id = channel.parent_id
+
+    if re.match(r"<:clong[a-zA-Z0-9_]*:[0-9]+>", text):
+        # Contains Clong emoji
+        if category_id not in NO_TEXT_CATEGORIES:
+            # Delete Clong emojis in normal channels
+            return await message.delete()
+        # Filter out Clong emojis
+        text = re.sub(r"<:clong[a-zA-Z0-9_]*:[0-9]+>", "", text)
+    if re.match(r"<:[a-zA-Z0-9_]*:[0-9]+>", text):
+        # Contains non-Clong emoji
+        if category_id in NO_TEXT_CATEGORIES:
+            # Delete non-Clong emojis in Clong channels
+            return await message.delete()
+
+    text = re.sub(r"<(@|#|@&)\d+?>", "", text)
+    text = re.sub(r"https?://[A-Za-z0-9-]+\.[A-Za-z0-9.-]+(/\S+)?", "", text)
+    if re.match(r"\s*$", text):
+        return
     if category_id in NO_TEXT_CATEGORIES:
         await message.delete()
+
+async def process_emoji_vote(message: hikari.Message):
+    if "emoji_vote" not in messages:
+        return
+    emoji_vote_channel = messages["emoji_vote"].channel_id
+    if message.channel_id != emoji_vote_channel:
+        return
+    # The message was in the emoji vote channel, attempt to count it as a vote
+    for att in message.attachments:
+        try:
+            emoji = await bot.rest.create_emoji(guild=GUILD_ID, name=f"clong_{message.author.id}_{message.id%10000}", image=att)
+        except:
+            continue
+        # Get all existing emojis
+        reactions = []
+        messages_containing_emoji = {}
+        message_with_room = None
+        async for msg in bot.rest.fetch_messages(emoji_vote_channel):
+            if not msg.author.is_bot:
+                continue
+            # Collect all the reactions
+            for react in msg.reactions:
+                reactions.append(react)
+                # Track the message each emoji was contained in
+                messages_containing_emoji[react.emoji.id] = msg
+            # Place new emojis in the first message that has room for additional emojis
+            if len(msg.reactions) < EMOJIS_PER_MESSAGE:
+                message_with_room = msg
+        # If we are at max emojis, we need to remove an emoji
+        if len(reactions) == MAX_EMOJIS:
+            # Sort by vote count
+            sorted_reactions = sorted(reactions, key = lambda x: x.count, reverse=True)
+            # Take out the top emojis (protected by vote) leaving only the ones low enough in votes to be replaced
+            unprotected = sorted_reactions[PROTECTED_EMOJIS:-1]
+            # Find the oldest emoji (this is so we don't always replace the emoji with a single vote,
+            # and cycle between a set of most recent emojis to give them time to be voted on)
+            oldest = min(*unprotected, key = lambda x: x.emoji.created_at).emoji
+            # Place the new emoji where the old one was
+            message_with_room = messages_containing_emoji[oldest.id]
+            # Delete the oldest emoji
+            await bot.rest.delete_all_reactions_for_emoji(emoji_vote_channel, message_with_room, oldest.name, oldest.id)
+            await bot.rest.delete_emoji(GUILD_ID, oldest.id)
+        # If no messages have room for the emoji, make a new message
+        if not message_with_room:
+            message_with_room = await bot.rest.create_message(emoji_vote_channel, ".")
+        # Add the new emoji and its reaction vote
+        await bot.rest.add_reaction(emoji_vote_channel, message_with_room, emoji)
+    # Delete the user's message that added the emoji
+    await message.delete()
+
+@bot.listen()
+async def on_reaction_add(event: hikari.GuildReactionAddEvent) -> None:
+    channel: hikari.GuildChannel = await bot.rest.fetch_channel(event.channel_id)
+    category_id = channel.parent_id
+    is_clong_category = category_id in NO_TEXT_CATEGORIES
+    is_clong_emoji = event.emoji_name.startswith("clong")
+    # Delete emoji if it is not used in the right place
+    if is_clong_category != is_clong_emoji:
+        msg = await bot.rest.fetch_message(event.channel_id, event.message_id)
+        old_react = False
+        for react in msg.reactions:
+            if event.is_for_emoji(react.emoji):
+                # Don't remove if the emoji is not the first one added (the old reactions are not banned)
+                if react.count > 1: old_react = True
+                break
+        if not old_react:
+            isunicode = isinstance(event.emoji_name, hikari.UnicodeEmoji)
+            if isunicode:
+                await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name)
+            else:
+                await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name, event.emoji_id)
+        
+    # Handle votes in the emoji vote
+    if "emoji_vote" not in messages:
+        return
+    emoji_vote_channel = messages["emoji_vote"].channel_id
+    if event.channel_id == emoji_vote_channel:
+        emoji_parts = event.emoji_name.split("_")
+        emoji_creator = emoji_parts[1]
+        if emoji_creator == str(event.user_id):
+            # The person who initially made the emoji voted for it
+            # To keep the votes accurate, the bot's vote will now be removed
+            await bot.rest.delete_my_reaction(event.channel_id, event.message_id, event.emoji_name, event.emoji_id)
+
+@bot.listen()
+async def on_reaction_remove(event: hikari.GuildReactionDeleteEvent) -> None:
+    if "emoji_vote" not in messages:
+        return
+    emoji_vote_channel = messages["emoji_vote"].channel_id
+    if event.channel_id == emoji_vote_channel:
+        async for user in bot.rest.fetch_reactions_for_emoji(emoji_vote_channel, event.message_id, event.emoji_name, event.emoji_id):
+            break
+        else:
+            # Emoji has been fully removed - delete it
+            await bot.rest.delete_emoji(GUILD_ID, event.emoji_id)
+        
 
 @bot.listen()
 async def on_message_create(event: hikari.MessageCreateEvent) -> None:
     if event.is_bot:
         return
     message = event.message
+    await process_emoji_vote(message)
     await delete_if_necessary(message)
 
 @bot.listen()
@@ -232,6 +347,79 @@ async def on_message_delete(event: hikari.MessageDeleteEvent) -> None:
             del messages[name]
             save_message_data()
             return
+
+@lightbulb_client.register
+class Emoji(
+    lightbulb.SlashCommand,
+    name="lookupemoji",
+    description="Look up who made an emoji",
+    default_member_permissions=hikari.Permissions.ADMINISTRATOR,
+):
+    emoji = lightbulb.string(
+        "emoji",
+        "Emoji to look up. You can insert the emoji itself, its name, or its ID.",
+    )
+
+    @lightbulb.invoke
+    async def lookupemoji(self, ctx: lightbulb.Context) -> None:
+        string = self.emoji.strip().split(":")[-1].split(">")[0]
+        try:
+            id = int(string)
+        except:
+            return await ctx.respond(f"Unrecognized emoji ID", ephemeral = True)
+
+        emoji = await bot.rest.fetch_emoji(GUILD_ID, id)
+        if not emoji.name.startswith("clong_"):
+            return await ctx.respond(f"Not a Clong emoji", ephemeral = True)
+            
+        creator_id = emoji.name.split("_")[1]
+        return await ctx.respond(f"That emoji was created by <@{creator_id}>", ephemeral = True)
+
+@lightbulb_client.register
+class DeleteEmoji(
+    lightbulb.SlashCommand,
+    name="deleteemoji",
+    description="Delete a problematic emoji",
+    default_member_permissions=hikari.Permissions.ADMINISTRATOR,
+):
+    emoji = lightbulb.string(
+        "emoji",
+        "Emoji to delete. You can insert the emoji itself, or its ID.",
+    )
+
+    @lightbulb.invoke
+    async def delete_emoji(self, ctx: lightbulb.Context) -> None:
+        string = self.emoji.strip().split(":")[-1].split(">")[0]
+        try:
+            id = int(string)
+        except:
+            return await ctx.respond(f"Unrecognized emoji ID", ephemeral = True)
+
+        emoji = await bot.rest.fetch_emoji(GUILD_ID, id)
+        if not emoji.name.startswith("clong_"):
+            return await ctx.respond(f"Not a Clong emoji", ephemeral = True)
+            
+        creator_id = emoji.name.split("_")[1]
+
+        
+        if "emoji_vote" in messages:
+            emoji_vote_channel = messages["emoji_vote"].channel_id
+            # Get all existing emojis
+            messages_containing_emoji = {}
+            async for msg in bot.rest.fetch_messages(emoji_vote_channel):
+                if not msg.author.is_bot:
+                    continue
+                # Collect all the reactions
+                for react in msg.reactions:
+                    # Track the message each emoji was contained in
+                    messages_containing_emoji[react.emoji.id] = msg
+            message = messages_containing_emoji[id]
+            await bot.rest.delete_all_reactions_for_emoji(emoji_vote_channel, message, emoji.name, id)
+        await bot.rest.delete_emoji(GUILD_ID, id)
+
+        return await ctx.respond(f"Deleted the emoji. That emoji was created by <@{creator_id}>", ephemeral = True)
+
+
 
 @lightbulb_client.register
 class From_code(
@@ -374,7 +562,6 @@ class set_create(
             ephemeral = True,
         )
 
-
 @lightbulb_client.register
 class say(
     lightbulb.SlashCommand,
@@ -496,6 +683,7 @@ class say(
                 attachment=hikari.File(img),
                 ephemeral = True,
             )
+            await bot.rest.create_emoji(GUILD_ID, "emoji_name", hikari.File(img))
 
         await save_temporarily(say_callback, image)
 

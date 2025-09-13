@@ -8,5 +8,8 @@
 		2
 	],
 	"Server restart hour": 5,
-	"Server restart minute": 50
+	"Server restart minute": 50,
+	"Max custom emojis": 64,
+	"Emojis per message": 16,
+	"Emojis protected by vote": 48
 }
