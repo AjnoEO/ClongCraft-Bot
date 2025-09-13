@@ -270,7 +270,6 @@ async def process_emoji_vote(message: hikari.Message):
         if not message_with_room:
             message_with_room = await bot.rest.create_message(emoji_vote_channel, ".")
         # Add the new emoji and its reaction vote
-        print(message_with_room)
         emoji = await bot.rest.create_emoji(guild=GUILD_ID, name=f"clong_{message.author.id}_{message.id%10000}", image=att)
         await bot.rest.add_reaction(emoji_vote_channel, message_with_room, emoji)
     # Delete the user's message that added the emoji
