@@ -239,6 +239,10 @@ async def process_emoji_vote(message: hikari.Message):
         return
     # The message was in the emoji vote channel, attempt to count it as a vote
     for att in message.attachments:
+        try:
+            emoji = await bot.rest.create_emoji(guild=GUILD_ID, name=f"clong_{message.author.id}_{message.id%10000}", image=att)
+        except:
+            continue
         # Get all existing emojis
         reactions = []
         messages_containing_emoji = {}
@@ -272,8 +276,6 @@ async def process_emoji_vote(message: hikari.Message):
         if not message_with_room:
             message_with_room = await bot.rest.create_message(emoji_vote_channel, ".")
         # Add the new emoji and its reaction vote
-        print(message_with_room)
-        emoji = await bot.rest.create_emoji(guild=GUILD_ID, name=f"clong_{message.author.id}_{message.id%10000}", image=att)
         await bot.rest.add_reaction(emoji_vote_channel, message_with_room, emoji)
     # Delete the user's message that added the emoji
     await message.delete()
@@ -285,13 +287,22 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent) -> None:
     is_clong_category = category_id in NO_TEXT_CATEGORIES
     is_clong_emoji = event.emoji_name.startswith("clong")
     # Delete emoji if it is not used in the right place
-    if is_clong_category != is_clong_emoji and not event.emoji_name.startswith("mc"):
-        isunicode = isinstance(event.emoji_name, hikari.UnicodeEmoji)
-        if isunicode:
-            await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name)
-        else:
-            await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name, event.emoji_id)
-        
+
+    if is_clong_category != is_clong_emoji:
+        msg = await bot.rest.fetch_message(event.channel_id, event.message_id)
+        old_react = False
+        for react in msg.reactions:
+            if event.is_for_emoji(react.emoji):
+                # Don't remove if the emoji is not the first one added (the old reactions are not banned)
+                if react.count > 1: old_react = True
+                break
+        if not old_react:
+            isunicode = isinstance(event.emoji_name, hikari.UnicodeEmoji)
+            if isunicode:
+                await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name)
+            else:
+                await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name, event.emoji_id)
+       
     # Handle votes in the emoji vote
     if "emoji_vote" not in messages:
         return
