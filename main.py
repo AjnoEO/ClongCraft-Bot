@@ -209,14 +209,16 @@ async def delete_if_necessary(message: hikari.Message):
         return
     category_id = channel.parent_id
 
-    if re.match(r"<:clong[a-zA-Z0-9_]*:[0-9]+>", text):
+    # Filter out Minecraft emojis (non-meta in both contexts)
+    text = re.sub(r"<:mc[a-zA-Z0-9_]*:[0-9]+>", "", text)
+    if re.search(r"<:clong[a-zA-Z0-9_]*:[0-9]+>", text):
         # Contains Clong emoji
         if category_id not in NO_TEXT_CATEGORIES:
             # Delete Clong emojis in normal channels
             return await message.delete()
         # Filter out Clong emojis
         text = re.sub(r"<:clong[a-zA-Z0-9_]*:[0-9]+>", "", text)
-    if re.match(r"<:[a-zA-Z0-9_]*:[0-9]+>", text):
+    if re.search(r"<:[a-zA-Z0-9_]*:[0-9]+>", text):
         # Contains non-Clong emoji
         if category_id in NO_TEXT_CATEGORIES:
             # Delete non-Clong emojis in Clong channels
@@ -285,6 +287,7 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent) -> None:
     is_clong_category = category_id in NO_TEXT_CATEGORIES
     is_clong_emoji = event.emoji_name.startswith("clong")
     # Delete emoji if it is not used in the right place
+
     if is_clong_category != is_clong_emoji:
         msg = await bot.rest.fetch_message(event.channel_id, event.message_id)
         old_react = False
@@ -299,7 +302,7 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent) -> None:
                 await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name)
             else:
                 await bot.rest.delete_all_reactions_for_emoji(event.channel_id, event.message_id, event.emoji_name, event.emoji_id)
-        
+       
     # Handle votes in the emoji vote
     if "emoji_vote" not in messages:
         return
@@ -683,7 +686,6 @@ class say(
                 attachment=hikari.File(img),
                 ephemeral = True,
             )
-            await bot.rest.create_emoji(GUILD_ID, "emoji_name", hikari.File(img))
 
         await save_temporarily(say_callback, image)
 
@@ -1624,9 +1626,7 @@ class variable_list(
 #                 output += f"\n- {param}"
 #         await ctx.respond(output, ephemeral = True)
 
-from collections import defaultdict
 UPDATE_TIME_MINS = 1
-uptime = defaultdict(int)
 
 import requests
 from asyncio import sleep
@@ -1651,16 +1651,17 @@ async def update_server_status(bot: hikari.GatewayBot, name: str):
     restart_minute = SERVER_RESTART_MINUTE
 
     current = datetime.now(timezone.utc)
-    currently_restarting = current.hour == restart_hour and (current.minute == restart_minute or current.minute == restart_minute + 1)
+    hourdiff = current.hour - restart_hour
+    minutediff = current.minute - restart_minute
 
     # Calculate status variables
     online = "players" in resp
     online_readable = "online" if online else "offline"
     player_count = resp["players"]["online"] if online else 0
     player_count_pluralizer = "" if player_count==1 else "s"
-    uptime[name] = uptime[name] + UPDATE_TIME_MINS if online and not currently_restarting else 0
-    uptime_minutes = uptime[name] % 60
-    uptime_hours = uptime[name] // 60
+    uptime = ((60 * 24) + hourdiff * 60 + minutediff) % (60 * 24)
+    uptime_minutes = uptime % 60
+    uptime_hours = uptime // 60
     player_list = "\n".join(p["name"] for p in resp["players"]["list"]) if player_count > 0 and "list" in resp["players"] else "None"
     # Update status variables
     vars_to_update = {f"status{name}_online": online, f"status{name}_online_readable": online_readable,
