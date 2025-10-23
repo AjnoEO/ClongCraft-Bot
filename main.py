@@ -199,28 +199,40 @@ async def on_join(event: hikari.MemberCreateEvent) -> None:
     channel = WELCOME_CHANNEL
     await bot.rest.create_message(channel, message)
 
+async def is_clong_channel(channel: hikari.GuildChannel) -> bool:
+    parent_id = channel.parent_id
+    if isinstance(channel, hikari.GuildThreadChannel):
+        # If the channel is a thread, we need to go up two levels, first to the parent channel, then to the parent category
+        channel = await channel.app.rest.fetch_channel(parent_id)
+        parent_id = channel.parent_id
+    return parent_id in NO_TEXT_CATEGORIES
+
 async def delete_if_necessary(message: hikari.Message):
     if not message.content:
         return
     text = message.content
 
-    channel: hikari.GuildChannel = await message.fetch_channel()
-    if channel.type not in [hikari.ChannelType.GUILD_TEXT, hikari.ChannelType.GUILD_VOICE]:
+    if message.type == 18: # THREAD_CREATED
         return
-    category_id = channel.parent_id
+
+    channel: hikari.GuildChannel = await message.fetch_channel()
+    if channel.type not in [hikari.ChannelType.GUILD_TEXT, hikari.ChannelType.GUILD_VOICE,
+                            hikari.ChannelType.GUILD_PRIVATE_THREAD, hikari.ChannelType.GUILD_PUBLIC_THREAD]:
+        return
+    is_clong = await is_clong_channel(channel)
 
     # Filter out Minecraft emojis (non-meta in both contexts)
     text = re.sub(r"<:mc[a-zA-Z0-9_]*:[0-9]+>", "", text)
     if re.search(r"<:clong[a-zA-Z0-9_]*:[0-9]+>", text):
         # Contains Clong emoji
-        if category_id not in NO_TEXT_CATEGORIES:
+        if not is_clong:
             # Delete Clong emojis in normal channels
             return await message.delete()
         # Filter out Clong emojis
         text = re.sub(r"<:clong[a-zA-Z0-9_]*:[0-9]+>", "", text)
     if re.search(r"<:[a-zA-Z0-9_]*:[0-9]+>", text):
         # Contains non-Clong emoji
-        if category_id in NO_TEXT_CATEGORIES:
+        if is_clong:
             # Delete non-Clong emojis in Clong channels
             return await message.delete()
 
@@ -228,7 +240,7 @@ async def delete_if_necessary(message: hikari.Message):
     text = re.sub(r"https?://[A-Za-z0-9-]+\.[A-Za-z0-9.-]+(/\S+)?", "", text)
     if re.match(r"\s*$", text):
         return
-    if category_id in NO_TEXT_CATEGORIES:
+    if is_clong:
         await message.delete()
 
 async def process_emoji_vote(message: hikari.Message):
@@ -283,12 +295,11 @@ async def process_emoji_vote(message: hikari.Message):
 @bot.listen()
 async def on_reaction_add(event: hikari.GuildReactionAddEvent) -> None:
     channel: hikari.GuildChannel = await bot.rest.fetch_channel(event.channel_id)
-    category_id = channel.parent_id
-    is_clong_category = category_id in NO_TEXT_CATEGORIES
+    is_clong_category = await is_clong_channel(channel)
     is_clong_emoji = event.emoji_name.startswith("clong")
     # Delete emoji if it is not used in the right place
 
-    if is_clong_category != is_clong_emoji:
+    if is_clong_category != is_clong_emoji and not event.emoji_name.startswith("mc"):
         msg = await bot.rest.fetch_message(event.channel_id, event.message_id)
         old_react = False
         for react in msg.reactions:
