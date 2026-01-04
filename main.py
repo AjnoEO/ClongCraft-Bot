@@ -222,14 +222,14 @@ async def delete_if_necessary(message: hikari.Message):
     is_clong = await is_clong_channel(channel)
 
     # Filter out Minecraft emojis (non-meta in both contexts)
-    text = re.sub(r"<:mc[a-zA-Z0-9_]*:[0-9]+>", "", text)
-    if re.search(r"<:clong[a-zA-Z0-9_]*:[0-9]+>", text):
+    text = re.sub(r"<:mc_[a-zA-Z0-9_]*:[0-9]+>", "", text)
+    if re.search(r"<:clong_[a-zA-Z0-9_]*:[0-9]+>", text):
         # Contains Clong emoji
         if not is_clong:
             # Delete Clong emojis in normal channels
             return await message.delete()
         # Filter out Clong emojis
-        text = re.sub(r"<:clong[a-zA-Z0-9_]*:[0-9]+>", "", text)
+        text = re.sub(r"<:clong_[a-zA-Z0-9_]*:[0-9]+>", "", text)
     if re.search(r"<:[a-zA-Z0-9_]*:[0-9]+>", text):
         # Contains non-Clong emoji
         if is_clong:
