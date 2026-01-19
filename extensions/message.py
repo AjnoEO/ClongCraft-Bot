@@ -6,7 +6,7 @@ Admin messages can be sent and edited through the bot by any administrator
 
 from .utils.message import Message, Variable, message_json_decode_hook, MessageJSONEncoder
 from .utils.paginator import PaginatorView
-from .utils.utils import UserError, handle_error
+from .utils.utils import UserError, handle_error, RED
 import json
 from json import JSONDecoder
 import os
@@ -57,7 +57,6 @@ async def on_starting(event: hikari.StartedEvent) -> None:
         save_message_data()
 
 CHARACTER_LIMIT = 2000
-RED = "#ee2d2d"
 
 metadata_path = os.path.join("meta.json")
 if os.path.exists(metadata_path):

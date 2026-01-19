@@ -5,6 +5,9 @@ import random
 import re
 from PIL import Image, ImageFont
 
+BASE_FONT = ImageFont.truetype(font="font_noto/NotoSans.ttf")
+RED = "#ee2d2d"
+
 class JSONifyable:
     @property
     def args(self): ...
@@ -33,8 +36,6 @@ def handle_error(err: Exception) -> tuple[str, bool]:
                         f"({filename}, line {line_number}): {err}"
     if "`" not in error_message: error_message = f"`{error_message}`"
     return error_message, handled
-
-BASE_FONT = ImageFont.truetype(font="font_noto/NotoSans.ttf")
 
 def urlize(string):
 	return re.sub(r"((https?://)?([\w\d-]+(\.[\w\d-]+)*(\.[\w\d-]{1,4})(/[^/\s]+)*)/?)", r"[\1](<https://\3>)", string)
