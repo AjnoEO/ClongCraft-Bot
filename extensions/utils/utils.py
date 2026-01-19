@@ -5,6 +5,9 @@ import random
 import re
 from PIL import Image, ImageFont
 
+BASE_FONT = ImageFont.truetype(font="font_noto/NotoSans.ttf")
+RED = "#ee2d2d"
+
 class JSONifyable:
     @property
     def args(self): ...
@@ -13,7 +16,26 @@ class JSONifyable:
 
 class UserError(Exception): ...
 
-BASE_FONT = ImageFont.truetype(font="font_noto/NotoSans.ttf")
+def handle_error(err: Exception) -> tuple[str, bool]:
+    """
+    :param Exception err: The raised exception
+
+    :return: `error_message`, `handled`
+    :rtype: tuple[str, bool]
+    """
+    handled = False
+    if isinstance(err, UserError):
+        error_message = str(err)
+        handled = True
+    else:
+        traceback = err.__traceback__
+        while traceback.tb_next: traceback = traceback.tb_next
+        filename = os.path.split(traceback.tb_frame.f_code.co_filename)[1]
+        line_number = traceback.tb_lineno
+        error_message = f"{err.__class__.__name__} " \
+                        f"({filename}, line {line_number}): {err}"
+    if "`" not in error_message: error_message = f"`{error_message}`"
+    return error_message, handled
 
 def urlize(string):
 	return re.sub(r"((https?://)?([\w\d-]+(\.[\w\d-]+)*(\.[\w\d-]{1,4})(/[^/\s]+)*)/?)", r"[\1](<https://\3>)", string)

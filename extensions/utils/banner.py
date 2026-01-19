@@ -1,14 +1,14 @@
-from banner_enums import *
+from .banner_enums import *
 import hikari
 import lightbulb
 import inspect
 from json import JSONEncoder
 from PIL import Image
 import re
-from splitting import SplitMode
+from .splitting import SplitMode
 import sys
 from typing import List, Dict, Any
-from utils import urlize, save_temporarily
+from .utils import urlize, save_temporarily
 
 PATTERNS_COUNT = 42
 COLORS_COUNT = 16

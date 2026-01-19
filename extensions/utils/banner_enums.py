@@ -1,6 +1,6 @@
 from enum import Enum
 import re
-from utils import choicify
+from extensions.utils import choicify
 
 class Direction(Enum):
     Up = 0
