@@ -1,4 +1,4 @@
-from utils import JSONifyable
+from extensions.utils import JSONifyable
 from json import JSONEncoder
 from typing import Any
 import re, inspect, sys

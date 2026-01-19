@@ -8,7 +8,7 @@ import re
 from splitting import SplitMode
 import sys
 from typing import List, Dict, Any
-from utils import urlize, save_temporarily
+from extensions.utils import urlize, save_temporarily
 
 PATTERNS_COUNT = 42
 COLORS_COUNT = 16
