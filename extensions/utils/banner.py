@@ -338,6 +338,7 @@ URL: {urlize(self.planetminecraft_url)}"""
                         label="Add Pattern" if selected is None else "Insert After",
                         emoji="➕",
                         custom_id="banner_add" if selected is None else f"banner_add_{selected}",
+                        is_disabled=(len(self.layers) >= 6)
                     ),
                 ]
             ),

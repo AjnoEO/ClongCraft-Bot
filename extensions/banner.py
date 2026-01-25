@@ -675,33 +675,31 @@ class add(
     @lightbulb.invoke
     async def add(self, ctx: lightbulb.Context) -> None:
         if ctx.user.id not in banner_designs:
-            await ctx.respond(
-                "You don't have a banner design at the moment!",
-                ephemeral = True,
-            )
+            raise UserError("You don't have a banner design at the moment!")
+        layers = banner_designs[ctx.user.id].layers
+        if len(layers) >= 6:
+            raise UserError("Cannot add more that 6 layers")
+        index = None
+        if self.layer is not None:
+            index = layer_to_index(ctx, self.layer)
+        for pattern in Pattern:
+            if pattern.pretty_name == self.pattern:
+                break
         else:
-            index = None
-            if self.layer is not None:
-                index = layer_to_index(ctx, self.layer)
-            for pattern in Pattern:
-                if pattern.pretty_name == self.pattern:
-                    break
-            else:
-                raise UserError(f"Invalid pattern: {self.pattern}")
-            for color in Color:
-                if color.pretty_name == self.color:
-                    break
-            else:
-                raise UserError(f"Invalid color: {self.color}") # Should be impossible
-            new_layer = Layer(color, pattern)
-            layers = banner_designs[ctx.user.id].layers
-            if index is None:
-                layers.append(new_layer)
-            else:
-                if not (1 <= index <= len(layers)): raise UserError(f"Cannot insert before layer {self.layer}")
-                layers.insert(index - 1, new_layer)
-            save_banner_data()
-            await respond_with_banner(ctx, banner_designs[ctx.user.id])
+            raise UserError(f"Invalid pattern: {self.pattern}")
+        for color in Color:
+            if color.pretty_name == self.color:
+                break
+        else:
+            raise UserError(f"Invalid color: {self.color}") # Should be impossible
+        new_layer = Layer(color, pattern)
+        if index is None:
+            layers.append(new_layer)
+        else:
+            if not (1 <= index <= len(layers)): raise UserError(f"Cannot insert before layer {self.layer}")
+            layers.insert(index - 1, new_layer)
+        save_banner_data()
+        await respond_with_banner(ctx, banner_designs[ctx.user.id])
 
 
 @loader.command
@@ -988,19 +986,22 @@ async def banner_interaction(event: hikari.ComponentInteractionCreateEvent) -> N
             layer_no = int(keywords[1])
             await layer_editing_menu(event.interaction, keywords[0], layer_no)
         case "add":
-            layer_no = keywords[0] if keywords else None
-            if layer_no == "layer":
-                layer_no, color, pattern = map(lambda v: None if v == '?' else int(v), keywords[1:])
-                new_layer = Layer(Color(color), Pattern(pattern))
-                if layer_no is None:
-                    banner.layers.append(new_layer)
-                else:
-                    banner.layers.insert(layer_no, new_layer)
-                save_banner_data()
+            if len(banner.layers) >= 6:
                 await edit_for_banner(event.interaction, banner)
-            else:
+                return
+            layer_no = keywords[0] if keywords else None
+            if layer_no != "layer":
                 if layer_no is not None: layer_no = int(layer_no)
                 await new_layer_menu(event.interaction, "pattern", layer_no=layer_no)
+                return
+            layer_no, color, pattern = map(lambda v: None if v == '?' else int(v), keywords[1:])
+            new_layer = Layer(Color(color), Pattern(pattern))
+            if layer_no is None:
+                banner.layers.append(new_layer)
+            else:
+                banner.layers.insert(layer_no, new_layer)
+            save_banner_data()
+            await edit_for_banner(event.interaction, banner)
         case "color" | "pattern":
             subprefix, *keywords = keywords
             if subprefix == "edit":
@@ -1019,11 +1020,12 @@ async def banner_interaction(event: hikari.ComponentInteractionCreateEvent) -> N
                 if button_prefix == "edit":
                     layer_no = int(keywords[0])
                     await layer_editing_menu(event.interaction, prefix, layer_no, page_no)
-                else: # "add"
-                    layer_no, color, pattern = map(lambda v: None if v == '?' else int(v), keywords)
-                    if pattern == "color":
-                        color, pattern = pattern, color
-                    await new_layer_menu(event.interaction, prefix, color, pattern, layer_no, page_no)
+                    return
+                # "add"
+                layer_no, color, pattern = map(lambda v: None if v == '?' else int(v), keywords)
+                if pattern == "color":
+                    color, pattern = pattern, color
+                await new_layer_menu(event.interaction, prefix, color, pattern, layer_no, page_no)
             elif subprefix == "new":
                 color = Color(int(keywords[0]))
                 await new_banner_menu(event.interaction, color)
@@ -1032,6 +1034,8 @@ async def banner_interaction(event: hikari.ComponentInteractionCreateEvent) -> N
                 if prefix == "color":
                     color, pattern = pattern, color
                 await new_layer_menu(event.interaction, prefix, color, pattern, layer_no)
+            else: raise ValueError(f"Invalid button ID: {button_id}")
+        case _: raise ValueError(f"Invalid button ID: {button_id}")
 
 
 @loader.command
