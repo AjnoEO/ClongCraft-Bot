@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import random
 import re
+from typing import Iterable, TypeVar
 from PIL import Image, ImageFont
 
 BASE_FONT = ImageFont.truetype(font="font_noto/NotoSans.ttf")
@@ -43,9 +44,19 @@ def urlize(string):
 def choicify(choices: list[str]):
 	return [lightbulb.Choice(c, c) for c in choices]
 
-async def save_temporarily(callback, image: Image.Image | None, *args):
+T = TypeVar('T')
+def list_to_groups(iterable: Iterable[T], group_size: int = 5, max_groups: int = 5) -> list[list[T]]:
+    result = [[]]
+    for element in iterable:
+        if len(result[-1]) == group_size:
+            if len(result) == max_groups: break
+            result.append([])
+        result[-1].append(element)
+    return result
+
+async def save_temporarily(callback, image: Image.Image | None, *args, **kwargs):
 	if image is None:
-		await callback(None, *args)
+		await callback(None, *args, **kwargs)
 		return None
 	temp_path = "temp"
 	Path(temp_path).mkdir(parents=True, exist_ok=True)
@@ -54,5 +65,5 @@ async def save_temporarily(callback, image: Image.Image | None, *args):
 		path = os.path.join(temp_path, filename + ".png")
 		if path not in os.listdir(temp_path): break
 	image.save(path)
-	await callback(path, *args)
+	await callback(path, *args, **kwargs)
 	os.remove(path)

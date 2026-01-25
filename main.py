@@ -28,7 +28,7 @@ bot = hikari.GatewayBot(
     | hikari.Intents.GUILD_MEMBERS,
 )
 lightbulb_client = lightbulb.client_from_app(bot)
-miru_client = miru.Client(bot)
+miru_client = miru.Client(bot, ignore_unknown_interactions=True)
 lightbulb_client.di.registry_for(
     lightbulb.di.Contexts.DEFAULT
 ).register_value(miru.Client, miru_client)
