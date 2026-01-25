@@ -376,7 +376,7 @@ async def __show_callback(path, ctx: lightbulb.Context, banner: Banner, for_ever
             ephemeral = not for_everyone
         )
 
-async def respond_with_banner(ctx, banner: Banner, for_everyone = False, editable = False):
+async def respond_with_banner(ctx, banner: Banner, for_everyone = False, editable = True):
 	await save_temporarily(__show_callback, banner.image.resize((80, 160), Image.Resampling.NEAREST),
 						   ctx, banner, for_everyone, editable)
 

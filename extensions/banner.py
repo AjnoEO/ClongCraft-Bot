@@ -638,15 +638,19 @@ class show(
     name="show",
     description="Show the current banner design",
 ):
+    for_everyone = lightbulb.boolean(
+        "for_everyone", "Set to true to send to everyone", default=False
+    )
+
     @lightbulb.invoke
     async def show(self, ctx: lightbulb.Context) -> None:
         if ctx.user.id not in banner_designs:
             await ctx.respond(
-                "You don't have a banner design at the moment!",
+                "You don't have a banner design at the moment! Create one using /new",
                 ephemeral = True,
             )
         else:
-            await respond_with_banner(ctx, banner_designs[ctx.user.id], editable=True)
+            await respond_with_banner(ctx, banner_designs[ctx.user.id], self.for_everyone, editable=not self.for_everyone)
 
 
 @loader.command
@@ -839,7 +843,7 @@ class poop(
                 ],
             ),
             self.for_everyone,
-            not self.for_everyone
+            editable=False
         )
 
 
@@ -1013,7 +1017,7 @@ async def banner_interaction(event: hikari.ComponentInteractionCreateEvent) -> N
                 page_no, button_prefix, *keywords = keywords
                 page_no = int(page_no)
                 if button_prefix == "edit":
-                    layer_no = int(keywords[2])
+                    layer_no = int(keywords[0])
                     await layer_editing_menu(event.interaction, prefix, layer_no, page_no)
                 else: # "add"
                     layer_no, color, pattern = map(lambda v: None if v == '?' else int(v), keywords)
