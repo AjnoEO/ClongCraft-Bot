@@ -45,11 +45,10 @@ def choicify(choices: list[str]):
 	return [lightbulb.Choice(c, c) for c in choices]
 
 T = TypeVar('T')
-def list_to_groups(iterable: Iterable[T], group_size: int = 5, max_groups: int = 5) -> list[list[T]]:
+def list_to_groups(iterable: Iterable[T], group_size: int = 5) -> list[list[T]]:
     result = [[]]
     for element in iterable:
         if len(result[-1]) == group_size:
-            if len(result) == max_groups: break
             result.append([])
         result[-1].append(element)
     return result
