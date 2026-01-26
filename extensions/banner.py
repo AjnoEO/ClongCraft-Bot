@@ -158,10 +158,17 @@ class save(
         )
 
 
-@loader.command
+set_cmd_group = lightbulb.Group(
+    "set", 
+    "Commands for managing banner sets", 
+    default_member_permissions=hikari.Permissions.ADMINISTRATOR
+)
+loader.command(set_cmd_group)
+
+@set_cmd_group.register
 class set_create(
     lightbulb.SlashCommand,
-    name="set-create",
+    name="create",
     description="Create a new banner set",
 ):
     name = lightbulb.string(
@@ -345,10 +352,10 @@ class say(
         await save_temporarily(say_callback, image)
 
 
-@loader.command
+@set_cmd_group.register
 class set_edit(
     lightbulb.SlashCommand,
-    name="set-edit",
+    name="edit",
     description="Edit the settings of a banner set. Default for all options is no change",
 ):
     set = lightbulb.string(
@@ -429,10 +436,10 @@ class set_edit(
         )
 
 
-@loader.command
+@set_cmd_group.register
 class set_delete(
     lightbulb.SlashCommand,
-    name="set-delete",
+    name="delete",
     description="Delete a banner set",
 ):
     set = lightbulb.string(
@@ -502,10 +509,10 @@ class rename(
         )
 
 
-@loader.command
+@set_cmd_group.register
 class set_rename(
     lightbulb.SlashCommand,
-    name="set-rename",
+    name="rename",
     description="Rename a set",
 ):
     name = lightbulb.string("name", "The name of the set")
@@ -527,10 +534,10 @@ class set_rename(
         )
 
 
-@loader.command
+@set_cmd_group.register
 class set_list(
     lightbulb.SlashCommand,
-    name="set-list",
+    name="list",
     description="List all your banner sets",
 ):
     @lightbulb.invoke
@@ -551,10 +558,10 @@ class set_list(
             )
 
 
-@loader.command
+@set_cmd_group.register
 class set_info(
     lightbulb.SlashCommand,
-    name="set-info",
+    name="info",
     description="List information on a banner set",
 ):
     set = lightbulb.string(
