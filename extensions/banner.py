@@ -72,6 +72,19 @@ def get_working_set(user_id: int, set: str, update_last_used: bool = True) -> tu
         last_used[user_id] = banner_set_name
     return banner_sets[user_id][banner_set_name], banner_set_name
 
+async def set_autocomplete(ctx: lightbulb.AutocompleteContext[str]) -> None:
+    user_id = ctx.interaction.user.id
+    sets = banner_sets.get(user_id)
+    if not sets:
+        await ctx.respond([])
+        return
+    last_set = last_used.get(user_id)
+    input_data = ctx.focused.value
+    result = [last_set] if last_set and input_data in last_set else []
+    result += [set_name for set_name in sets.keys() if input_data in set_name and set_name != last_set]
+    await ctx.respond(result)
+    return
+
 def char_option(provided_value: str | None, current_value: str):
     if not provided_value:
         return current_value
@@ -155,7 +168,7 @@ class save(
 ):
     name = lightbulb.string("name", "The name of the banner")
     set = lightbulb.string(
-        "set", "The name of the set. Last used by default", default=None
+        "set", "The name of the set. Last used by default", autocomplete=set_autocomplete, default=None
     )
 
     @lightbulb.invoke
@@ -246,7 +259,7 @@ class say(
 ):
     message = lightbulb.string("message", "Your message")
     set = lightbulb.string(
-        "set", "The name of the banner set to use. Default is last used", default=None
+        "set", "The name of the banner set to use. Default is last used", autocomplete=set_autocomplete, default=None
     )
     scale = lightbulb.integer(
         "scale",
@@ -370,7 +383,7 @@ class set_edit(
     description="Edit the settings of a banner set. Default for all options is no change",
 ):
     set = lightbulb.string(
-        "set", "The name of the banner set to use. Default is last used", default=None
+        "set", "The name of the banner set to use. Default is last used", autocomplete=set_autocomplete, default=None
     )
     name = lightbulb.string(
         "name",
@@ -454,7 +467,7 @@ class set_delete(
     description="Delete a banner set",
 ):
     set = lightbulb.string(
-        "set", "The name of the banner set to use. Default is last used", default=None
+        "set", "The name of the banner set to use. Default is last used", autocomplete=set_autocomplete, default=None
     )
 
     @lightbulb.invoke
@@ -478,7 +491,7 @@ class delete(
 ):
     name = lightbulb.string("name", "The name of the banner")
     set = lightbulb.string(
-        "set", "The name of the set. Last used by default", default=None
+        "set", "The name of the set. Last used by default", autocomplete=set_autocomplete, default=None
     )
 
     @lightbulb.invoke
@@ -502,7 +515,7 @@ class rename(
     name = lightbulb.string("name", "The name of the banner")
     new_name = lightbulb.string("new_name", "The new name of the banner")
     set = lightbulb.string(
-        "set", "The name of the set. Last used by default", default=None
+        "set", "The name of the set. Last used by default", autocomplete=set_autocomplete, default=None
     )
 
     @lightbulb.invoke
@@ -576,7 +589,7 @@ class set_info(
     description="List information on a banner set",
 ):
     set = lightbulb.string(
-        "set", "The name of the set. Last used by default", default=None
+        "set", "The name of the set. Last used by default", autocomplete=set_autocomplete, default=None
     )
 
     @lightbulb.invoke
@@ -637,7 +650,7 @@ class load(
 ):
     name = lightbulb.string("name", "The name of the banner to load")
     set = lightbulb.string(
-        "set", "The name of the set. Last used by default", default=None
+        "set", "The name of the set. Last used by default", autocomplete=set_autocomplete, default=None
     )
 
     @lightbulb.invoke
