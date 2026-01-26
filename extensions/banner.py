@@ -79,10 +79,22 @@ def char_option(provided_value: str | None, current_value: str):
         return " "
     return provided_value
 
-@loader.command
+banner_cmd_group = lightbulb.Group(
+    "banner", 
+    "Commands for designing banners"
+)
+loader.command(banner_cmd_group)
+
+banner_from_cmd_subgroup = banner_cmd_group.subgroup(
+    "from",
+    "Commands for loading banners from outer sources"
+)
+# loader.command(banner_from_cmd_subgroup)
+
+@banner_from_cmd_subgroup.register
 class From_code(
     lightbulb.SlashCommand,
-    name = "from-code",
+    name = "code",
     description = "Clear the banner design and create a design by the design code "
                   "(use /getbannercode on the server)",
 ):
@@ -98,10 +110,10 @@ class From_code(
         await respond_with_banner(ctx, banner)
 
 
-@loader.command
+@banner_from_cmd_subgroup.register
 class from_text(
     lightbulb.SlashCommand,
-    name="from-text",
+    name="text",
     description="Clear the banner design and create a design using the text.",
 ):
     text = lightbulb.string(
@@ -116,10 +128,10 @@ class from_text(
         await respond_with_banner(ctx, banner)
 
 
-@loader.command
+@banner_from_cmd_subgroup.register
 class from_url(
     lightbulb.SlashCommand,
-    name="from-url",
+    name="url",
     description="Clear the banner design and create a design using the given URL.",
 ):
     url = lightbulb.string(
@@ -135,7 +147,7 @@ class from_url(
         await respond_with_banner(ctx, banner)
 
 
-@loader.command
+@banner_cmd_group.register
 class save(
     lightbulb.SlashCommand,
     name="save",
@@ -160,8 +172,7 @@ class save(
 
 set_cmd_group = lightbulb.Group(
     "set", 
-    "Commands for managing banner sets", 
-    default_member_permissions=hikari.Permissions.ADMINISTRATOR
+    "Commands for managing banner sets"
 )
 loader.command(set_cmd_group)
 
@@ -459,7 +470,7 @@ class set_delete(
         )
 
 
-@loader.command
+@banner_cmd_group.register
 class delete(
     lightbulb.SlashCommand,
     name="delete",
@@ -482,7 +493,7 @@ class delete(
         )
 
 
-@loader.command
+@banner_cmd_group.register
 class rename(
     lightbulb.SlashCommand,
     name="rename",
@@ -618,7 +629,7 @@ Split mode: `{banner_set.split_mode.value}`
         await save_temporarily(list_callback, image)
 
 
-@loader.command
+@banner_cmd_group.register
 class load(
     lightbulb.SlashCommand,
     name="load",
@@ -639,7 +650,7 @@ class load(
         await respond_with_banner(ctx, banner)
 
 
-@loader.command
+@banner_cmd_group.register
 class show(
     lightbulb.SlashCommand,
     name="show",
@@ -656,7 +667,14 @@ class show(
             await respond_with_banner(ctx, banner_designs[ctx.user.id])
 
 
-@loader.command
+banner_layer_cmd_subgroup = banner_cmd_group.subgroup(
+    name = "layer",
+    description = "Banner layer manipulations"
+)
+# loader.command(banner_layer_cmd_subgroup)
+
+
+@banner_layer_cmd_subgroup.register
 class add(
     lightbulb.SlashCommand,
     name="add",
@@ -707,7 +725,7 @@ class add(
             await respond_with_banner(ctx, banner_designs[ctx.user.id])
 
 
-@loader.command
+@banner_layer_cmd_subgroup.register
 class remove(
     lightbulb.SlashCommand,
     name="remove",
@@ -739,7 +757,7 @@ class remove(
             await respond_with_banner(ctx, banner_designs[ctx.user.id])
 
 
-@loader.command
+@banner_cmd_group.register
 class new(
     lightbulb.SlashCommand,
     name="new",
@@ -764,7 +782,7 @@ class new(
         await respond_with_banner(ctx, banner_designs[ctx.user.id])
 
 
-@loader.command
+@banner_layer_cmd_subgroup.register
 class edit(
     lightbulb.SlashCommand,
     name="edit",
@@ -849,7 +867,7 @@ class poop(
         )
 
 
-@loader.command
+@banner_cmd_group.register
 class clear(
     lightbulb.SlashCommand,
     name="clear",
@@ -868,7 +886,7 @@ class clear(
             await respond_with_banner(ctx, banner_designs[ctx.user.id])
 
 
-@loader.command
+@banner_cmd_group.register
 class patterns(
     lightbulb.SlashCommand,
     name="patterns",
