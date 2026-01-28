@@ -28,7 +28,7 @@ bot = hikari.GatewayBot(
     | hikari.Intents.GUILD_MEMBERS,
 )
 lightbulb_client = lightbulb.client_from_app(bot)
-miru_client = miru.Client(bot)
+miru_client = miru.Client(bot, ignore_unknown_interactions=True)
 lightbulb_client.di.registry_for(
     lightbulb.di.Contexts.DEFAULT
 ).register_value(miru.Client, miru_client)
@@ -48,13 +48,61 @@ async def handler(exc: lightbulb.exceptions.ExecutionPipelineFailedException) ->
     error_message, handled = handle_error(error_cause)
     embed = hikari.Embed(
         title = "Error!",
-        description = f"An error occurred while attempting to use `/{exc.context.command_data.name}`.\n"
-                      f"Error message: {error_message}",
+        description = (f"An error occurred while attempting to use `/{exc.context.command_data.name}`.\n"
+                       f"Error message: {error_message}"),
         color = RED
     )
     await exc.context.respond(embed, ephemeral=True)
     return handled
 
+
+@bot.listen(hikari.ExceptionEvent)
+async def other_hanlder(exc_event: hikari.ExceptionEvent):
+    event = exc_event.failed_event
+    if not isinstance(event, hikari.ComponentInteractionCreateEvent):
+        raise
+    error_message, handled = handle_error(exc_event.exception)
+    embed = hikari.impl.ContainerComponentBuilder(
+        accent_color=hikari.Color.from_hex_code(RED),
+        components=[
+            hikari.impl.TextDisplayComponentBuilder(
+                content = "**Error!**"
+            ),
+            hikari.impl.TextDisplayComponentBuilder(
+                content = (f"An error occurred while handling `{exc_event.failed_callback.__name__}`).\n"
+                           f"Error message: {error_message}")
+            ),
+        ]
+    )
+    components: list = event.interaction.message.components
+    while (isinstance(components[-1], hikari.ContainerComponent)
+           and components[-1].components[0].content.startswith("**Error")):
+        components.pop()
+    try:
+        components = unbuild(components) + [embed]
+    except Exception as unbuilding_error:
+        unbuilding_error_message, _ = handle_error(unbuilding_error)
+        unbuilding_error_embed = hikari.impl.ContainerComponentBuilder(
+            accent_color=hikari.Color.from_hex_code(RED),
+            components=[
+                hikari.impl.TextDisplayComponentBuilder(
+                    content = "**Error editing the message**"
+                ),
+                hikari.impl.TextDisplayComponentBuilder(
+                    content = (f"An error occurred while editing the message.\n"
+                               f"Error message: {unbuilding_error_message}")
+                ),
+            ]
+        )
+        await event.interaction.edit_initial_response(
+            components = [embed, unbuilding_error_embed]
+        )
+        raise
+    await event.interaction.edit_initial_response(
+        components=components
+    )
+    if not handled:
+        raise exc_event.exception from None
 
 # Temporarily removed the /help command until I figure out how the hell it’s supposed to work
 

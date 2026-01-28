@@ -31,14 +31,8 @@ async def pattern_autocomplete(ctx: lightbulb.AutocompleteContext[str]) -> None:
 
 class Layer:
     def __init__(self, color: Color, pattern: Pattern):
-        self.__color = color
-        self.__pattern = pattern
-
-    @property
-    def color(self) -> Color: return self.__color
-
-    @property
-    def pattern(self) -> Pattern: return self.__pattern
+        self.color = color
+        self.pattern = pattern
 
     def __repr__(self) -> str: return f"Layer[{self.color.name} {self.pattern.name}]"
 
@@ -51,6 +45,9 @@ class Layer:
         if self.pattern == Pattern.Banner: return ""
         if self.color == Color.White: return "\uE300\U000CFFF7"
         return "\uE000\U000CFFF7"
+
+    @property
+    def pretty_name(self) -> str: return f"{self.color.pretty_name} {self.pattern.pretty_name} {self.base_text}{self.character}"
 
     @property
     def sprite(self) -> Image.Image:
@@ -109,16 +106,13 @@ class Layer:
         return Layer(self.color, self.pattern)
 
     def set(self, other: "Layer") -> None:
-        self.__color = other.color
-        self.__pattern = other.pattern
+        self.color = other.color
+        self.pattern = other.pattern
 
 class Banner:
-    def __init__(self, base_color: Color, layers: List[Layer]):
-        self.__base_color = base_color
+    def __init__(self, base_color: Color, layers: List[Layer] = []):
+        self.base_color = base_color
         self.layers = layers
-
-    @property
-    def base_color(self) -> Color: return self.__base_color
 
     @property
     def all_layers(self) -> List[Layer]: return [Layer(self.base_color, Pattern.Banner)] + self.layers
@@ -265,35 +259,164 @@ class Banner:
             return cls.from_planetminecraft_url(url)
         else:
             raise ValueError(f"Unrecognized URL: {url}")
+    
+    @property
+    def layers_description(self) -> str:
+        return "\n".join(
+            f"{i}. {layer.pretty_name}" for i, layer in enumerate(self.all_layers, start=1)
+        )
 
     @property
     def description(self) -> str:
-        layer_text = "\n".join(
-            f"{i}. {layer.color.pretty_name} {layer.pattern.pretty_name} {layer.base_text}{layer.character}"
-            for i, layer in enumerate(self.all_layers)
-        )
         return f"""Text: {self.text}
 Copyable: ```
 {self.text}
 ```
 Banner code: `{self.banner_code}`
-URL: {urlize(self.planetminecraft_url)}
-Layers:
-{layer_text}"""
+URL: {urlize(self.planetminecraft_url)}"""
+    
+    def as_components(self, img_path: str, selected: int | None = None) -> list[hikari.api.ComponentBuilder]:
+        return [
+            hikari.impl.TextDisplayComponentBuilder(content=self.description),
+            hikari.impl.SectionComponentBuilder(
+                accessory=hikari.impl.InteractiveButtonBuilder(
+                    style=hikari.ButtonStyle.PRIMARY if selected == 0 else hikari.ButtonStyle.SECONDARY,
+                    label="↑" if selected else "⠿",
+                    custom_id="banner_unselect_0" if selected == 0 else "banner_select_0",
+                    is_disabled=bool(selected)
+                ),
+                components=[
+                    hikari.impl.TextDisplayComponentBuilder(content=f"1. {self.all_layers[0].pretty_name}"),
+                ]
+            ),
+            *(hikari.impl.SectionComponentBuilder(
+                accessory=hikari.impl.InteractiveButtonBuilder(
+                    style=hikari.ButtonStyle.PRIMARY if selected == i else hikari.ButtonStyle.SECONDARY,
+                    label="⠿" if selected is None or selected == i else "↑" if selected > i else "↓",
+                    custom_id=
+                        f"banner_unselect_{i}" if selected == i else
+                        f"banner_select_{i}" if selected is None else
+                        f"banner_move_{selected}_{i}",
+                    is_disabled=(selected==0)
+                ),
+                components=[
+                    hikari.impl.TextDisplayComponentBuilder(content=f"{i+1}. {layer.pretty_name}"),
+                ]
+            ) for i, layer in enumerate(self.layers, start=1)),
+            hikari.impl.MediaGalleryComponentBuilder(
+                items=[
+                    hikari.impl.MediaGalleryItemBuilder(
+                        media=img_path,
+                    ),
+                ]
+            ),
+            hikari.impl.MessageActionRowBuilder(
+                components=[
+                    hikari.impl.InteractiveButtonBuilder(
+                        style=hikari.ButtonStyle.SECONDARY,
+                        label="Change Color",
+                        emoji="🖌️",
+                        custom_id=f"banner_edit_color_{selected}",
+                        is_disabled=selected is None,
+                    ),
+                    hikari.impl.InteractiveButtonBuilder(
+                        style=hikari.ButtonStyle.SECONDARY,
+                        label="Change Pattern",
+                        emoji="⚜️",
+                        custom_id=f"banner_edit_pattern_{selected}",
+                        is_disabled=not selected,
+                    ),
+                    hikari.impl.InteractiveButtonBuilder(
+                        style=hikari.ButtonStyle.SECONDARY,
+                        label="Remove",
+                        emoji="🗑️",
+                        custom_id=f"banner_remove_{selected}",
+                        is_disabled=not selected,
+                    ),
+                    hikari.impl.InteractiveButtonBuilder(
+                        style=hikari.ButtonStyle.SECONDARY,
+                        label="Add Pattern" if selected is None else "Insert After",
+                        emoji="➕",
+                        custom_id="banner_add" if selected is None else f"banner_add_{selected}",
+                        is_disabled=(len(self.layers) >= 6)
+                    ),
+                ]
+            ),
+            hikari.impl.MessageActionRowBuilder(
+                components=[
+                    hikari.impl.InteractiveButtonBuilder(
+                        style=hikari.ButtonStyle.SECONDARY,
+                        label="Clear Design",
+                        emoji="❌",
+                        custom_id="banner_clear",
+                    ),
+                    hikari.impl.InteractiveButtonBuilder(
+                        style=hikari.ButtonStyle.SECONDARY,
+                        label="New Banner",
+                        emoji="✨",
+                        custom_id="banner_new",
+                    ),
+                ]
+            ),
+            hikari.impl.TextDisplayComponentBuilder(content="-# Save the design using `/save`")
+        ]
 
     def copy(self) -> "Banner":
         return Banner(self.base_color, [layer.copy() for layer in self.layers])
 
-async def __pattern_update_callback(path, ctx: lightbulb.Context, text: str, for_everyone: bool):
-	await ctx.respond(
-		text,
-		attachment = hikari.File(path),
-		ephemeral = not for_everyone
-	)
+async def __show_callback(path, ctx: lightbulb.Context, banner: Banner, for_everyone: bool, editable: bool):
+    if editable:
+        await ctx.respond(
+            components = banner.as_components(path),
+            ephemeral = not for_everyone
+        )
+    else:
+        await ctx.respond(
+            banner.description + "\n" + banner.layers_description,
+            attachment = hikari.File(path),
+            ephemeral = not for_everyone
+        )
 
-async def respond_with_banner(ctx, banner: Banner, for_everyone = False):
-	await save_temporarily(__pattern_update_callback, banner.image.resize((80, 160), Image.Resampling.NEAREST),
-						   ctx, banner.description, for_everyone)
+async def respond_with_banner(ctx, banner: Banner, for_everyone = False, editable = True):
+	await save_temporarily(__show_callback, banner.image.resize((80, 160), Image.Resampling.NEAREST),
+						   ctx, banner, for_everyone, editable)
+
+async def __edit_callback(path, interaction: hikari.ComponentInteraction, banner: Banner, selected: int | None):
+    await interaction.edit_initial_response(components = banner.as_components(path, selected))
+
+async def edit_for_banner(interaction: hikari.ComponentInteraction, banner: Banner, selected: int | None = None):
+    await save_temporarily(__edit_callback, banner.image.resize((80, 160), Image.Resampling.NEAREST),
+						   interaction, banner, selected)
+
+async def __edit_color_callback(path, interaction: hikari.ComponentInteraction, description: str, button_prefix: str,
+                                selected: Color | None, final_buttons: list[dict[str]]):
+    await interaction.edit_initial_response(
+        components = Color.as_components(description, path, button_prefix, selected, final_buttons)
+    )
+
+async def edit_for_color(interaction: hikari.ComponentInteraction, banner: Banner | None, description: str,
+                         button_prefix: str, selected: Color | None, final_buttons: list[dict[str]]):
+    if banner:
+        await save_temporarily(__edit_color_callback,
+                               banner.image.resize((80, 160), Image.Resampling.NEAREST).crop((-40, 0, 120, 160)),
+                               interaction, description, button_prefix, selected, final_buttons)
+    else:
+        await __edit_color_callback(None, interaction, description, button_prefix, selected, final_buttons)
+
+async def __edit_pattern_callback(path, interaction: hikari.ComponentInteraction, description: str, button_prefix: str,
+                                  selected: Pattern | None, final_buttons: list[dict[str]], page_no: int | None):
+    await interaction.edit_initial_response(
+        components = Pattern.as_components(description, path, button_prefix, selected, final_buttons, page_no)
+    )
+
+async def edit_for_pattern(interaction: hikari.ComponentInteraction, banner: Banner, description: str, button_prefix: str,
+                           selected: Pattern | None, final_buttons: list[dict[str]], page_no: int | None):
+    if banner:
+        await save_temporarily(__edit_pattern_callback,
+                               banner.image.resize((80, 160), Image.Resampling.NEAREST).crop((-40, 0, 120, 160)),
+                               interaction, description, button_prefix, selected, final_buttons, page_no)
+    else:
+        await __edit_pattern_callback(None, interaction, description, button_prefix, selected, final_buttons, page_no)
 
 class BannerSet:
     def __init__(self, writing_direction: Direction, newline_direction: Direction, space_char: str, newline_char: str,

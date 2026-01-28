@@ -669,15 +669,19 @@ class show(
     name="show",
     description="Show the current banner design",
 ):
+    for_everyone = lightbulb.boolean(
+        "for_everyone", "Set to true to send to everyone", default=False
+    )
+
     @lightbulb.invoke
     async def show(self, ctx: lightbulb.Context) -> None:
         if ctx.user.id not in banner_designs:
             await ctx.respond(
-                "You don't have a banner design at the moment!",
+                "You don't have a banner design at the moment! Create one using /new",
                 ephemeral = True,
             )
         else:
-            await respond_with_banner(ctx, banner_designs[ctx.user.id])
+            await respond_with_banner(ctx, banner_designs[ctx.user.id], self.for_everyone, editable=not self.for_everyone)
 
 
 banner_layer_cmd_subgroup = banner_cmd_group.subgroup(
@@ -709,33 +713,31 @@ class add(
     @lightbulb.invoke
     async def add(self, ctx: lightbulb.Context) -> None:
         if ctx.user.id not in banner_designs:
-            await ctx.respond(
-                "You don't have a banner design at the moment!",
-                ephemeral = True,
-            )
+            raise UserError("You don't have a banner design at the moment!")
+        layers = banner_designs[ctx.user.id].layers
+        if len(layers) >= 6:
+            raise UserError("Cannot add more that 6 layers")
+        index = None
+        if self.layer is not None:
+            index = layer_to_index(ctx, self.layer)
+        for pattern in Pattern:
+            if pattern.pretty_name == self.pattern:
+                break
         else:
-            index = None
-            if self.layer is not None:
-                index = layer_to_index(ctx, self.layer)
-            for pattern in Pattern:
-                if pattern.pretty_name == self.pattern:
-                    break
-            else:
-                raise UserError(f"Invalid pattern: {self.pattern}")
-            for color in Color:
-                if color.pretty_name == self.color:
-                    break
-            else:
-                raise UserError(f"Invalid color: {self.color}") # Should be impossible
-            new_layer = Layer(color, pattern)
-            layers = banner_designs[ctx.user.id].layers
-            if index is None:
-                layers.append(new_layer)
-            else:
-                if not (1 <= index <= len(layers)): raise UserError(f"Cannot insert before layer {self.layer}")
-                layers.insert(index - 1, new_layer)
-            save_banner_data()
-            await respond_with_banner(ctx, banner_designs[ctx.user.id])
+            raise UserError(f"Invalid pattern: {self.pattern}")
+        for color in Color:
+            if color.pretty_name == self.color:
+                break
+        else:
+            raise UserError(f"Invalid color: {self.color}") # Should be impossible
+        new_layer = Layer(color, pattern)
+        if index is None:
+            layers.append(new_layer)
+        else:
+            if not (1 <= index <= len(layers)): raise UserError(f"Cannot insert before layer {self.layer}")
+            layers.insert(index - 1, new_layer)
+        save_banner_data()
+        await respond_with_banner(ctx, banner_designs[ctx.user.id])
 
 
 @banner_layer_cmd_subgroup.register
@@ -877,6 +879,7 @@ class poop(
                 ],
             ),
             self.for_everyone,
+            editable=False
         )
 
 
@@ -897,6 +900,180 @@ class clear(
             banner_designs[ctx.user.id].layers = []
             save_banner_data()
             await respond_with_banner(ctx, banner_designs[ctx.user.id])
+
+async def layer_editing_menu(interaction: hikari.ComponentInteraction, prop: str, layer_no: int, page_no: int | None = None):
+    banner = banner_designs[interaction.user.id]
+    layer = banner.all_layers[layer_no]
+    description = f"Select a {prop} for layer {layer_no+1}. {layer.pretty_name}"
+    button_prefix = f"edit_{layer_no}"
+    final_buttons = [
+        {"style": hikari.ButtonStyle.SUCCESS, "label": "Done", "emoji": "✅", "custom_id": "banner_show"}
+    ]
+    if prop == "color":
+        await edit_for_color(
+            interaction, banner, description, button_prefix, layer.color, final_buttons
+        )
+    elif prop == "pattern":
+        await edit_for_pattern(
+            interaction, banner, description, button_prefix, layer.pattern, final_buttons, page_no
+        )
+
+async def new_banner_menu(interaction: hikari.ComponentInteraction, color: Color | None = None):
+    banner = Banner(color) if color else None
+    description = f"Creating new banner\nSelect the base color for your banner"
+    final_buttons = [
+        {"style": hikari.ButtonStyle.SECONDARY, "label": "Cancel", "emoji": "↩️", "custom_id": f"banner_show"},
+        {"style": hikari.ButtonStyle.SUCCESS, "label": "Done", "emoji": "✅",
+         "custom_id": f"banner_create_{color.value if color else 0}", "is_disabled": color is None},
+    ]
+    await edit_for_color(
+        interaction, banner, description, button_prefix="new", selected=color, final_buttons=final_buttons
+    )
+
+async def new_layer_menu(interaction: hikari.ComponentInteraction, prop: str, color_id: int | None = None, 
+                         pattern_id: int | None = None, layer_no: int = None, page_no: int | None = None):
+    value, other_prop, other_value = (
+        (pattern_id, "color", color_id) if prop == "pattern" else (color_id, "pattern", pattern_id)
+    )
+    color = None if color_id is None else Color(color_id)
+    pattern = None if pattern_id is None else Pattern(pattern_id)
+    description = (
+        ("Adding new layer" if layer_no is None else f"Adding layer {layer_no}")
+        + f"\nSelect a {prop} for your layer"
+    )
+    layer_no_str, value_str, other_value_str = map(lambda v: '?' if v is None else v, (layer_no, value, other_value))
+    button_prefix = f"add_{layer_no_str}_{other_value_str}"
+    final_buttons = [
+        {"style": hikari.ButtonStyle.PRIMARY, "label": f"Choose {other_prop.capitalize()}", "emoji": "⏩",
+         "custom_id": f"banner_{other_prop}_add_{layer_no_str}_{value_str}_{other_value_str}"},
+        {"style": hikari.ButtonStyle.SECONDARY, "label": "Cancel", "emoji": "↩️", "custom_id": f"banner_show"},
+        {"style": hikari.ButtonStyle.SUCCESS, "label": "Done", "emoji": "✅", 
+         "is_disabled": (color is None) or (pattern is None),
+         "custom_id": f"banner_add_layer_{layer_no_str}_{color_id}_{pattern_id}"},
+    ]
+    if color and pattern:
+        banner = banner_designs[interaction.user.id].copy()
+        new_layer = Layer(color, pattern)
+        if layer_no is None:
+            banner.layers.append(new_layer)
+        else:
+            banner.layers.insert(layer_no, new_layer)
+    elif color:
+        banner = Banner(color)
+    elif pattern:
+        banner = Banner(Color.White, [Layer(Color.Black, pattern)])
+    else:
+        banner = None
+    if prop == "color":
+        await edit_for_color(
+            interaction, banner, description, button_prefix, color, final_buttons
+        )
+    elif prop == "pattern":
+        await edit_for_pattern(
+            interaction, banner, description, button_prefix, pattern, final_buttons, page_no
+        )
+
+@loader.listener(hikari.ComponentInteractionCreateEvent)
+async def banner_interaction(event: hikari.ComponentInteractionCreateEvent) -> None:
+    button_id = event.interaction.custom_id
+    if not button_id.startswith("banner_"):
+        return # Not a banner event
+    prefix, *keywords = button_id.split("_")[1:]
+    user_id = event.interaction.user.id
+    banner = banner_designs.get(user_id)
+    await event.interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
+    match prefix:
+        case "clear":
+            banner.layers = []
+            save_banner_data()
+            await edit_for_banner(event.interaction, banner)
+        case "new":
+            await new_banner_menu(event.interaction)
+        case "create":
+            base_color = Color(int(keywords[0]))
+            banner = Banner(base_color)
+            banner_designs[user_id] = banner
+            save_banner_data()
+            await edit_for_banner(event.interaction, banner)
+        case "select":
+            await edit_for_banner(event.interaction, banner, selected=(int(keywords[0])))
+        case "unselect" | "show":
+            await edit_for_banner(event.interaction, banner)
+        case "move":
+            move_layer, move_to = map(int, keywords)
+            move_layer -= 1
+            move_to -= 1
+            if move_layer > move_to:
+                banner.layers = (
+                    banner.layers[:move_to] + [banner.layers[move_layer]]
+                    + banner.layers[move_to:move_layer] + banner.layers[move_layer+1:]
+                )
+            else:
+                banner.layers = (
+                    banner.layers[:move_layer] + banner.layers[move_layer+1:move_to+1]
+                    + [banner.layers[move_layer]] + banner.layers[move_to+1:]
+                )
+            save_banner_data()
+            await edit_for_banner(event.interaction, banner)
+        case "remove":
+            layer_no = int(keywords[0])
+            banner.layers.pop(layer_no-1)
+            save_banner_data()
+            await edit_for_banner(event.interaction, banner)
+        case "edit":
+            layer_no = int(keywords[1])
+            await layer_editing_menu(event.interaction, keywords[0], layer_no)
+        case "add":
+            if len(banner.layers) >= 6:
+                await edit_for_banner(event.interaction, banner)
+                return
+            layer_no = keywords[0] if keywords else None
+            if layer_no != "layer":
+                if layer_no is not None: layer_no = int(layer_no)
+                await new_layer_menu(event.interaction, "pattern", layer_no=layer_no)
+                return
+            layer_no, color, pattern = map(lambda v: None if v == '?' else int(v), keywords[1:])
+            new_layer = Layer(Color(color), Pattern(pattern))
+            if layer_no is None:
+                banner.layers.append(new_layer)
+            else:
+                banner.layers.insert(layer_no, new_layer)
+            save_banner_data()
+            await edit_for_banner(event.interaction, banner)
+        case "color" | "pattern":
+            subprefix, *keywords = keywords
+            if subprefix == "edit":
+                layer_no, prop_id = map(int, keywords)
+                if prefix == "color" and layer_no == 0:
+                    banner.base_color = Color(prop_id)
+                elif prefix == "color":
+                    banner.layers[layer_no-1].color = Color(prop_id)
+                else:
+                    banner.layers[layer_no-1].pattern = Pattern(prop_id)
+                save_banner_data()
+                await layer_editing_menu(event.interaction, prefix, layer_no)
+            elif subprefix == "page":
+                page_no, button_prefix, *keywords = keywords
+                page_no = int(page_no)
+                if button_prefix == "edit":
+                    layer_no = int(keywords[0])
+                    await layer_editing_menu(event.interaction, prefix, layer_no, page_no)
+                    return
+                # "add"
+                layer_no, color, pattern = map(lambda v: None if v == '?' else int(v), keywords)
+                if pattern == "color":
+                    color, pattern = pattern, color
+                await new_layer_menu(event.interaction, prefix, color, pattern, layer_no, page_no)
+            elif subprefix == "new":
+                color = Color(int(keywords[0]))
+                await new_banner_menu(event.interaction, color)
+            elif subprefix == "add":
+                layer_no, color, pattern = map(lambda v: None if v == '?' else int(v), keywords)
+                if prefix == "color":
+                    color, pattern = pattern, color
+                await new_layer_menu(event.interaction, prefix, color, pattern, layer_no)
+            else: raise ValueError(f"Invalid button ID: {button_id}")
+        case _: raise ValueError(f"Invalid button ID: {button_id}")
 
 
 @banner_cmd_group.register

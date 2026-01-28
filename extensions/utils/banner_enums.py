@@ -1,6 +1,7 @@
 from enum import Enum
 import re
-from extensions.utils import choicify
+from extensions.utils import choicify, list_to_groups
+import hikari
 
 class Direction(Enum):
     Up = 0
@@ -41,6 +42,33 @@ class Color(Enum):
     @property
     def planetminecraft_url_index(self) -> str:
         return COLOR_TO_PLANETMINECRAFT_URL_INDEX[self]
+    
+    @classmethod
+    def as_components(cls, description: str, thumbnail_path: str = None, button_prefix: str = None, selected: 'Color' = None,
+                      final_buttons: list[dict[str]] = []):
+        result = [hikari.impl.TextDisplayComponentBuilder(content=description)]
+        if thumbnail_path:
+            result = [hikari.impl.SectionComponentBuilder(
+                accessory=hikari.impl.ThumbnailComponentBuilder(media=thumbnail_path),
+                components=result
+            )]
+        colors = list_to_groups(cls)
+        result += [
+            hikari.impl.MessageActionRowBuilder(
+                components=[
+                    hikari.impl.InteractiveButtonBuilder(
+                        style=hikari.ButtonStyle.PRIMARY if color == selected else hikari.ButtonStyle.SECONDARY,
+                        label=color.pretty_name,
+                        custom_id=f"banner_color" + (f"_{button_prefix}" if button_prefix else "") + f"_{color.value}",
+                    ) for color in colorrow
+                ]
+            ) for colorrow in colors
+        ]
+        if final_buttons:
+            result += [hikari.impl.MessageActionRowBuilder(components=
+                [hikari.impl.InteractiveButtonBuilder(**button) for button in final_buttons]
+            )]
+        return result
 
 COLOR_CHOICES = choicify([c.pretty_name for c in Color])
 
@@ -101,6 +129,7 @@ COLOR_TO_PLANETMINECRAFT_URL_INDEX = {
     Color.Purple: "6"
 }
 
+MAX_PATTERNS_PER_PAGE = 22
 
 class Pattern(Enum):
     Banner = 0
@@ -166,6 +195,64 @@ class Pattern(Enum):
     @property
     def planetminecraft_url_index(self) -> str:
         return PATTERN_TO_PLANETMINECRAFT_URL_INDEX.get(self)
+
+    @classmethod
+    def as_components(cls, description: str, thumbnail_path: str = None, button_prefix: str = None, selected: 'Pattern' = None,
+                      final_buttons: list[dict[str]] = [], page_no: int = None):
+        result = [hikari.impl.TextDisplayComponentBuilder(content=description)]
+        if thumbnail_path:
+            result = [hikari.impl.SectionComponentBuilder(
+                accessory=hikari.impl.ThumbnailComponentBuilder(media=thumbnail_path),
+                components=result
+            )]
+        if page_no is None:
+            if selected is None:
+                page_no = 1
+            else:
+                page_no = (selected.value - 1) // MAX_PATTERNS_PER_PAGE + 1
+        max_page = (cls.__len__() - 2) // MAX_PATTERNS_PER_PAGE + 1 # -Banner and -1 => -2
+        patterns_list = list(cls)
+        patterns = list_to_groups(patterns_list[1 + MAX_PATTERNS_PER_PAGE * (page_no-1):1 + MAX_PATTERNS_PER_PAGE * page_no])
+        result += [
+            hikari.impl.MessageActionRowBuilder(
+                components=[
+                    hikari.impl.InteractiveButtonBuilder(
+                        style=hikari.ButtonStyle.PRIMARY,
+                        label="←",
+                        custom_id=f"banner_pattern_page_{page_no-1}_{button_prefix}_{selected.value if selected else '?'}",
+                        is_disabled=(page_no == 1)
+                    ),
+                    hikari.impl.InteractiveButtonBuilder(
+                        style=hikari.ButtonStyle.PRIMARY,
+                        label=f"Page {page_no}/{max_page}",
+                        custom_id=f"banner_show_2",
+                        is_disabled=True
+                    ),
+                    hikari.impl.InteractiveButtonBuilder(
+                        style=hikari.ButtonStyle.PRIMARY,
+                        label="→",
+                        custom_id=f"banner_pattern_page_{page_no+1}_{button_prefix}_{selected.value if selected else '?'}",
+                        is_disabled=(page_no == max_page)
+                    ),
+                ]
+            )
+        ]
+        result += [
+            hikari.impl.MessageActionRowBuilder(
+                components=[
+                    hikari.impl.InteractiveButtonBuilder(
+                        style=hikari.ButtonStyle.PRIMARY if pattern == selected else hikari.ButtonStyle.SECONDARY,
+                        label=pattern.pretty_name,
+                        custom_id=f"banner_pattern" + (f"_{button_prefix}" if button_prefix else "") + f"_{pattern.value}",
+                    ) for pattern in patternrow
+                ]
+            ) for patternrow in patterns
+        ]
+        if final_buttons:
+            result += [hikari.impl.MessageActionRowBuilder(components=
+                [hikari.impl.InteractiveButtonBuilder(**button) for button in final_buttons]
+            )]
+        return result
 
 PATTERN_TO_DATA_VALUE = {
     Pattern.Banner: "b",
