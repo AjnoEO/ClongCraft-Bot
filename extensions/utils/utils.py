@@ -1,4 +1,5 @@
-import lightbulb
+import hikari, lightbulb
+from hikari import impl
 import os
 from pathlib import Path
 import random
@@ -43,6 +44,38 @@ def urlize(string):
 
 def choicify(choices: list[str]):
     return [lightbulb.Choice(c, c) for c in choices]
+
+def unbuild(component: list | hikari.PartialComponent):
+    if isinstance(component, list):
+        return [unbuild(elem) for elem in component]
+    component_t_to_builder: dict[type[hikari.PartialComponent], type[hikari.api.ComponentBuilder]] = {
+        hikari.TextDisplayComponent: impl.TextDisplayComponentBuilder,
+        hikari.ButtonComponent: impl.InteractiveButtonBuilder,
+        hikari.ThumbnailComponent: impl.ThumbnailComponentBuilder,
+        hikari.MediaGalleryItem: impl.MediaGalleryItemBuilder,
+        hikari.ActionRowComponent: impl.MessageActionRowBuilder,
+        hikari.MediaGalleryComponent: impl.MediaGalleryComponentBuilder,
+        hikari.SectionComponent: impl.SectionComponentBuilder,
+    }
+    recursive = {"components", "items", "accessory"}
+    conversion = {"spoiler": "is_spoiler"}
+    builder = component_t_to_builder.get(type(component))
+    if not builder:
+        raise ValueError(f"Unknown Component type: {type(component)}")
+    kwargs = {}
+    for build_varname in builder.__init__.__code__.co_varnames:
+        varname = conversion.get(build_varname, build_varname)
+        if varname == 'self' or varname == 'id': continue
+        if varname == 'media':
+            media: hikari.MediaResource = component.__getattribute__(varname)
+            kwargs[build_varname] = media.url
+        elif varname == 'emoji':
+            emoji: hikari.Emoji = component.__getattribute__(varname)
+            if emoji: kwargs[build_varname] = emoji.name
+        elif varname in recursive: kwargs[build_varname] = unbuild(component.__getattribute__(varname))
+        else: kwargs[build_varname] = component.__getattribute__(varname)
+    return builder(**kwargs)
+    
 
 T = TypeVar('T')
 def list_to_groups(iterable: Iterable[T], group_size: int = 5) -> list[list[T]]:
