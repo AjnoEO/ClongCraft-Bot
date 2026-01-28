@@ -106,8 +106,8 @@ class Layer:
         return Layer(self.color, self.pattern)
 
     def set(self, other: "Layer") -> None:
-        self.__color = other.color
-        self.__pattern = other.pattern
+        self.color = other.color
+        self.pattern = other.pattern
 
 class Banner:
     def __init__(self, base_color: Color, layers: List[Layer] = []):
