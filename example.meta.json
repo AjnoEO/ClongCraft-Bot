@@ -7,6 +7,9 @@
 		1,
 		2
 	],
+	"Scheduling channels": [
+		3
+	],
 	"Server restart hour": 5,
 	"Server restart minute": 50,
 	"Max custom emojis": 64,
