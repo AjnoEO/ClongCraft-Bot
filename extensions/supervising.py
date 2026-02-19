@@ -11,6 +11,7 @@ if os.path.exists("meta.json"):
         WELCOME_CHANNEL: hikari.GuildChannel = data["Welcome channel ID"]
         WELCOME_MESSAGE: str = data["Welcome message"]
         NO_TEXT_CATEGORIES: list[int] = data["No-text categories"]
+        SCHEDULING_CHANNELS: list[int] = data["Scheduling channels"]
 else:
     raise FileNotFoundError("meta.json is missing.\n"
                             "If you cloned or pulled the git repo, "
@@ -59,6 +60,10 @@ async def delete_if_necessary(message: hikari.Message):
         if is_clong:
             # Delete non-Clong emojis in Clong channels
             return await message.delete()
+        
+    if channel.id in SCHEDULING_CHANNELS:
+        # Filter out discord time-codes only in designated scheduling channels
+        text = re.sub(r"<t:[0-9]+:[a-zA-Z]>", "", text)
 
     text = re.sub(r"<(@|#|@&)\d+?>", "", text)
     text = re.sub(r"https?://[A-Za-z0-9-]+\.[A-Za-z0-9.-]+(/\S+)?", "", text)
