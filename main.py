@@ -60,7 +60,7 @@ async def handler(exc: lightbulb.exceptions.ExecutionPipelineFailedException) ->
 async def other_hanlder(exc_event: hikari.ExceptionEvent):
     event = exc_event.failed_event
     if not isinstance(event, hikari.ComponentInteractionCreateEvent):
-        raise
+        raise exc_event.exception from None
     error_message, handled = handle_error(exc_event.exception)
     embed = hikari.impl.ContainerComponentBuilder(
         accent_color=hikari.Color.from_hex_code(RED),
