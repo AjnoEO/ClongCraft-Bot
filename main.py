@@ -61,6 +61,10 @@ async def other_hanlder(exc_event: hikari.ExceptionEvent):
     event = exc_event.failed_event
     if not isinstance(event, hikari.ComponentInteractionCreateEvent):
         raise exc_event.exception from None
+    try:
+        await event.interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
+    except:
+        pass
     error_message, handled = handle_error(exc_event.exception)
     embed = hikari.impl.ContainerComponentBuilder(
         accent_color=hikari.Color.from_hex_code(RED),
