@@ -26,4 +26,4 @@ venv
 backups/
 
 # logs
-logs.txt
+logs.*
