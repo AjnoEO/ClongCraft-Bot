@@ -25,12 +25,11 @@ async def on_join(event: hikari.MemberCreateEvent) -> None:
     await event.app.rest.create_message(channel, message)
 
 async def is_clong_channel(channel: hikari.GuildChannel) -> bool:
-    parent_id = channel.parent_id
     if isinstance(channel, hikari.GuildThreadChannel):
         # If the channel is a thread, we need to go up two levels, first to the parent channel, then to the parent category
-        channel = await channel.app.rest.fetch_channel(parent_id)
-        parent_id = channel.parent_id
-    return parent_id in NO_TEXT_CATEGORIES
+        channel = await channel.app.rest.fetch_channel(channel.parent_id)
+    parent_id = channel.parent_id
+    return parent_id in NO_TEXT_CATEGORIES or channel.id in NO_TEXT_CATEGORIES
 
 async def delete_if_necessary(message: hikari.Message):
     if not message.content:
